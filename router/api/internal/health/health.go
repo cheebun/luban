@@ -1,4 +1,4 @@
-// Package health implements the router's self-check (依赖/自检) page:
+// Package health implements the router's self-check (dependencies/diagnostics) page:
 // checking that required binaries are installed, that the services we
 // depend on are active, and that the resolver/network-manager takeover
 // this project relies on (masking systemd-resolved, disabling
@@ -20,7 +20,7 @@ const cmdTimeout = 5 * time.Second
 
 var errUnknownService = errors.New("service is not in the restart allowlist")
 
-// Component is one row of the "组件" (components) section: a binary this
+// Component is one row of the "components" section: a binary this
 // project shells out to.
 type Component struct {
 	Name      string  `json:"name"`
@@ -29,7 +29,7 @@ type Component struct {
 	Detail    string  `json:"detail"`
 }
 
-// ServiceStatus is one row of the "服务" (services) section.
+// ServiceStatus is one row of the "services" section.
 type ServiceStatus struct {
 	Name        string `json:"name"`
 	Active      string `json:"active"` // systemctl is-active output
@@ -37,7 +37,7 @@ type ServiceStatus struct {
 	Restartable bool   `json:"restartable"`
 }
 
-// TakeoverCheck is one row of the "接管检查" (takeover checks) section:
+// TakeoverCheck is one row of the "takeover checks" section:
 // verifies this project has successfully taken over DNS/network management
 // from the distro defaults (systemd-resolved, NetworkManager).
 type TakeoverCheck struct {
@@ -55,7 +55,7 @@ type Health struct {
 
 // checkedBinaries lists the external binaries this project depends on, and
 // the flag used to probe each one's version. Order matches the reference
-// UI's 组件 table.
+// UI's components table.
 var checkedBinaries = []struct {
 	name        string
 	versionArgs []string
@@ -96,7 +96,7 @@ func RestartService(ctx context.Context, name string) error {
 	return exec.CommandContext(c, "systemctl", "restart", name).Run()
 }
 
-// monitoredServices lists every service shown in the 服务 section, in the
+// monitoredServices lists every service shown in the services section, in the
 // order the reference UI displays them.
 var monitoredServices = []string{
 	"router-ui",

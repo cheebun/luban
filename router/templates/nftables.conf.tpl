@@ -4,7 +4,7 @@
 flush ruleset
 
 {{- if .IsBridge }}
-# ── Bridge WAN mode (有线桥) ─────────────────────────────────────────────────
+# ── Bridge WAN mode ──────────────────────────────────────────────────────────
 # The WAN port is bridged into br0; this device is a switch/AP behind an
 # upstream router, which owns NAT/masquerade. Only self-protection rules
 # apply here — no masquerade, no MSS clamp, no modem SNAT (there is no

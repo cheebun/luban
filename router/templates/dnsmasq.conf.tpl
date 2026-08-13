@@ -5,7 +5,7 @@
 port=0
 {{- if .IsBridge }}
 
-# Bridge WAN mode (有线桥): this device is a switch/AP behind an upstream
+# Bridge WAN mode: this device is a switch/AP behind an upstream
 # router, which is the sole DHCP server on the segment. DHCP is intentionally
 # disabled here — dnsmasq keeps running (systemd unit stays enabled) but
 # stays inert with no dhcp-range, so it can never race the upstream router

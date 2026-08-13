@@ -2,7 +2,7 @@
 
 # Listen on the LAN bridge address; dnsmasq owns br0:53 is not used (port=0 there).
 {{- if .IsBridge }}
-# Bridge WAN mode (有线桥): br0's management address is DHCP-assigned by the
+# Bridge WAN mode: br0's management address is DHCP-assigned by the
 # upstream router and not known at render time, so bind to all interfaces
 # rather than a specific address. Local DNS is still useful to LAN clients
 # that point at us manually, even though we no longer push it via DHCP

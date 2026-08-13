@@ -1,4 +1,4 @@
-# luban (鲁班)
+# Luban
 
 A self-built Linux router for Debian/Armbian boards, OpenWrt-inspired: one JSON
 config source, generated service configs, and an apply → confirm → auto-rollback

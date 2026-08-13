@@ -64,7 +64,7 @@ type TemplateData struct {
 	IsPPPoE  bool
 	IsStatic bool
 	IsDHCP   bool
-	// IsBridge is true when wan.mode == "bridge" (wired-bridge / 有线桥): the
+	// IsBridge is true when wan.mode == "bridge" (wired-bridge): the
 	// WAN port joins br0 and the router degrades to a switch/AP — the
 	// upstream router owns DHCP/NAT, this device only takes a management
 	// address on br0 via DHCP client.

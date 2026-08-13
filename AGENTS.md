@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Machine-readable rules for AI coding tools working on **luban** (鲁班), a
+Machine-readable rules for AI coding tools working on **Luban**, a
 self-built Linux router (Debian/Armbian, Go backend `rui` + React web UI).
 Code, comments, and commits are English only; the UI itself is Chinese.
 

@@ -33,7 +33,7 @@ net.ipv6.conf.{{ .WanIface }}.accept_ra = 2
 net.ipv4.conf.{{ .WanIface }}.accept_redirects = 0
 net.ipv4.conf.{{ .WanIface }}.send_redirects = 0
 {{- else }}
-# Bridge WAN mode (有线桥): the WAN port is now a plain br0 bridge port, not
+# Bridge WAN mode: the WAN port is now a plain br0 bridge port, not
 # a routed interface — the accept_ra/redirects tuning above applies to a
 # routed WAN link and doesn't make sense here. br0 itself gets its address
 # via DHCP (see networkd-br0.network.tpl) and follows normal LAN interface

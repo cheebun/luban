@@ -33,7 +33,7 @@ type Status struct {
 // SystemInfo is the dashboard "system overview" block. Every optional field
 // is a pointer so it degrades to JSON null (rather than a misleading zero
 // value) when the underlying source is unavailable, e.g. running on macOS
-// in dev where /proc and /sys don't exist. The frontend renders null as 未知.
+// in dev where /proc and /sys don't exist. The frontend renders null as "unknown".
 type SystemInfo struct {
 	Hostname   string          `json:"hostname"`
 	OS         *string         `json:"os"`     // PRETTY_NAME from /etc/os-release
@@ -399,7 +399,7 @@ func macAddress(name string) string {
 // linkSpeedMbps reads /sys/class/net/<name>/speed. The kernel reports -1 (or
 // the read fails outright) when the link is down or the driver doesn't
 // support reporting speed (e.g. most virtual interfaces) — both cases
-// normalize to nil so the frontend can render 未知 instead of a bogus value.
+// normalize to nil so the frontend can render "unknown" instead of a bogus value.
 func linkSpeedMbps(name string) *int {
 	data, err := os.ReadFile("/sys/class/net/" + name + "/speed")
 	if err != nil {

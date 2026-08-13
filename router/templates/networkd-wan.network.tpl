@@ -7,7 +7,7 @@ Name={{ .WanIface }}
 MTUBytes={{ .WAN.MTU }}
 {{- end }}
 {{- if .IsBridge }}
-# Bridge WAN mode (有线桥): the WAN port joins br0 as a plain bridge port —
+# Bridge WAN mode: the WAN port joins br0 as a plain bridge port —
 # no IP configuration of its own. The upstream router owns DHCP/NAT/RA; br0
 # (see networkd-br0.network.tpl) takes the router's management address as a
 # DHCP client through the bridge.

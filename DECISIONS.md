@@ -503,14 +503,14 @@ artifact (matches the existing "device only receives static files" rule).
 
 ## Naming
 
-Project name: **luban** (鲁班), chosen 2026-08-12.
+Project name: **Luban**, chosen 2026-08-12.
 
 | Artifact | Name |
 |---|---|
 | Go binary | `rui` |
 | Go module | `luban` |
 | JS workspace package | `@router/web` (unchanged) |
-| Web UI title | 「鲁班 Luban」 |
+| Web UI title | "Luban" |
 
 The binary name `rui` predates the project name and is kept for stability (no
 install-path churn). The Go module is `luban` to match the project identity. The

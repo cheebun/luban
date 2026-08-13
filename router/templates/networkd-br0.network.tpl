@@ -7,7 +7,7 @@ Name=br0
 # br0 never comes up and dnsmasq cannot bind (field-tested failure mode).
 ConfigureWithoutCarrier=yes
 {{- if .IsBridge }}
-# Bridge WAN mode (有线桥): this device is a switch/AP behind an upstream
+# Bridge WAN mode: this device is a switch/AP behind an upstream
 # router. No static address, no delegated-prefix assignment, no RA — br0 is
 # a DHCP client on the upstream router's network, same as any other LAN
 # client, and upstream RA passes through the bridge unmodified.
