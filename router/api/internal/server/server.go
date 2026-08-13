@@ -26,6 +26,7 @@ type Server struct {
 	baseDir    string
 	prober     detect.Prober
 	probeCache wizardProbeCache
+	pipelineFn func(context.Context, string, apply.TemplateData) error
 }
 
 // Option is a functional option for New.
@@ -34,6 +35,12 @@ type Option func(*Server) //nolint:revive // Opt would be terse but Option is cl
 // WithProber replaces the DHCP prober (used in tests to inject a fake).
 func WithProber(p detect.Prober) Option {
 	return func(s *Server) { s.prober = p }
+}
+
+// WithPipelineFn replaces the apply pipeline function. Only intended for tests;
+// production code always uses apply.Pipeline.
+func WithPipelineFn(fn func(context.Context, string, apply.TemplateData) error) Option {
+	return func(s *Server) { s.pipelineFn = fn }
 }
 
 // New constructs a Server. Call ListenAndServe to start it.
@@ -319,7 +326,11 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "build template data: "+err.Error())
 		return
 	}
-	if err := apply.Pipeline(r.Context(), s.baseDir, data); err != nil {
+	pf := s.pipelineFn
+	if pf == nil {
+		pf = apply.Pipeline
+	}
+	if err := pf(r.Context(), s.baseDir, data); err != nil {
 		slog.Error("apply failed", "err", err)
 		writeError(w, http.StatusInternalServerError, "apply failed: "+err.Error())
 		return

@@ -292,7 +292,11 @@ func (s *Server) handleWizardComplete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "build template data: "+err.Error())
 		return
 	}
-	if err := apply.Pipeline(r.Context(), s.baseDir, data); err != nil {
+	pf := s.pipelineFn
+	if pf == nil {
+		pf = apply.Pipeline
+	}
+	if err := pf(r.Context(), s.baseDir, data); err != nil {
 		slog.Error("wizard apply failed", "err", err)
 		writeError(w, http.StatusInternalServerError, "apply failed: "+err.Error())
 		return
