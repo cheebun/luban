@@ -1,6 +1,6 @@
 [Unit]
 Description=Luban config rollback watchdog timer
-Documentation=https://github.com/luban/linux-router
+Documentation=https://github.com/cheebun/luban
 
 [Timer]
 # Fire shortly after boot to catch the power-loss case: if the router lost

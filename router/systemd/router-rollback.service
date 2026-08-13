@@ -1,6 +1,6 @@
 [Unit]
 Description=Luban config rollback watchdog
-Documentation=https://github.com/luban/linux-router
+Documentation=https://github.com/cheebun/luban
 # After network target so we can log and communicate, but this unit must NOT
 # depend on router-ui (it may be the broken service being rolled back).
 After=network.target

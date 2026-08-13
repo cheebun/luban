@@ -1,6 +1,6 @@
 [Unit]
 Description=Luban Router UI (Go backend)
-Documentation=https://github.com/luban/linux-router
+Documentation=https://github.com/cheebun/luban
 After=network.target systemd-networkd.service caddy.service
 
 [Service]

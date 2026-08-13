@@ -10,7 +10,7 @@ set -euo pipefail
 
 ##############################################################################
 # PLACEHOLDER — update these before publishing a release
-GITHUB_REPO="user/luban"        # <-- UPDATE to the real GitHub org/repo
+GITHUB_REPO="cheebun/luban"
 SMARTDNS_REPO="pymumu/smartdns" # SmartDNS upstream GitHub repo (do not change)
 ##############################################################################
 
