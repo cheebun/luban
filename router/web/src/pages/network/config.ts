@@ -24,5 +24,5 @@ export const DEFAULT_CONFIG: RouterConfig = {
     },
   },
   ipv6: { enabled: true, lan_prefix_len: "auto" },
-  dns: { upstreams: [] },
+  dns: { upstreams: [], static_records: [] },
 };

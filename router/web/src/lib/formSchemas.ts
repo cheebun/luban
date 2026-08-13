@@ -190,6 +190,69 @@ export const dnsFormSchema = z.object({
   upstreams: z.array(z.string()),
 });
 
+// ---- Static DNS records -------------------------------------------------
+
+// isValidLanDNSName mirrors the Go isValidHostname check for RFC1123 labels.
+function isValidLanDNSName(name: string): boolean {
+  if (!name || name.length > 253) return false;
+  const labelRe = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$|^[a-zA-Z0-9]$/;
+  return name.split(".").every((l) => l.length > 0 && l.length <= 63 && labelRe.test(l));
+}
+
+// isValidIP accepts IPv4 or IPv6 addresses for UX feedback; the Go backend
+// is the authoritative validator.
+function isValidIP(ip: string): boolean {
+  // IPv4
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  if (ipv4 && ipv4.slice(1).map(Number).every((n) => n <= 255)) return true;
+  // IPv6: must contain colons and only valid hex chars / colons
+  return ip.includes(":") && /^[0-9a-fA-F:]+$/.test(ip) && ip.split(":").length <= 9;
+}
+
+const RESERVED_LAN_NAMES = new Set(["router.lan", "br0.lan", "modem.lan"]);
+
+// staticDNSRecordSchema mirrors the Go validation rules exactly.
+const staticDNSRecordSchema = z
+  .object({ name: z.string(), ip: z.string() })
+  .superRefine((v, ctx) => {
+    const name = v.name.trim().toLowerCase();
+    if (name.endsWith(".local")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: "仅支持 .lan 域名（.local 为 mDNS 保留，RFC 6762）",
+      });
+    } else if (!name.endsWith(".lan")) {
+      ctx.addIssue({ code: "custom", path: ["name"], message: "仅支持 .lan 域名" });
+    } else if (!isValidLanDNSName(name)) {
+      ctx.addIssue({ code: "custom", path: ["name"], message: "域名格式无效（须为 RFC1123 标签）" });
+    } else if (RESERVED_LAN_NAMES.has(name)) {
+      ctx.addIssue({ code: "custom", path: ["name"], message: "该名称为内置保留名称" });
+    }
+    const ip = v.ip.trim();
+    if (!ip) {
+      ctx.addIssue({ code: "custom", path: ["ip"], message: "请输入 IP 地址" });
+    } else if (!isValidIP(ip)) {
+      ctx.addIssue({ code: "custom", path: ["ip"], message: "IP 地址格式无效（支持 IPv4 和 IPv6）" });
+    }
+  });
+
+export const staticRecordsFormSchema = z
+  .object({ records: z.array(staticDNSRecordSchema) })
+  .superRefine((v, ctx) => {
+    const seen = new Set<string>();
+    v.records.forEach((rec, i) => {
+      const key = `${rec.name.trim().toLowerCase()}|${rec.ip.trim()}`;
+      if (seen.has(key)) {
+        ctx.addIssue({ code: "custom", path: ["records", i, "name"], message: "重复记录" });
+      } else {
+        seen.add(key);
+      }
+    });
+  });
+
+export type StaticRecordsFormValues = z.infer<typeof staticRecordsFormSchema>;
+
 export type DnsFormValues = z.infer<typeof dnsFormSchema>;
 
 // dnsFormSchema intentionally doesn't validate each upstream's syntax via

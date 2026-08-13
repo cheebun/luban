@@ -59,8 +59,14 @@ export const Ipv6ConfigSchema = z.object({
   lan_prefix_len: z.union([z.literal("auto"), z.number()]),
 });
 
+export const StaticDNSRecordSchema = z.object({
+  name: z.string(),
+  ip: z.string(),
+});
+
 export const DnsConfigSchema = z.object({
   upstreams: nullableArray(z.string()),
+  static_records: nullableArray(StaticDNSRecordSchema),
 });
 
 export const SystemConfigSchema = z.object({
@@ -245,6 +251,7 @@ export type LanDnsMode = z.infer<typeof LanDnsModeSchema>;
 export type LanDhcpConfig = z.infer<typeof LanDhcpConfigSchema>;
 export type LanConfig = z.infer<typeof LanConfigSchema>;
 export type Ipv6Config = z.infer<typeof Ipv6ConfigSchema>;
+export type StaticDNSRecord = z.infer<typeof StaticDNSRecordSchema>;
 export type DnsConfig = z.infer<typeof DnsConfigSchema>;
 export type SystemConfig = z.infer<typeof SystemConfigSchema>;
 export type RouterConfig = z.infer<typeof RouterConfigSchema>;

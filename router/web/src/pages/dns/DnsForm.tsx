@@ -21,6 +21,7 @@ import {
 } from "../../components/ui/index.ts";
 import { UPSTREAM_FORMATS_HINT, validateDnsUpstream } from "../../lib/dns.ts";
 import { dnsFormSchema, fieldErrorText, type DnsFormValues } from "../../lib/formSchemas.ts";
+import { StaticRecordsSection } from "./StaticRecordsSection.tsx";
 
 const PageTitle = twc.h1`text-xl font-semibold text-gray-900 mb-6`;
 const MaxWidthWrapper = twc.div`max-w-2xl`;
@@ -161,6 +162,7 @@ export function DnsForm({ config }: Props) {
             </CardFooter>
           </Card>
         </form>
+        <StaticRecordsSection config={config} />
       </MaxWidthWrapper>
 
       <ApplyDialog

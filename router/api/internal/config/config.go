@@ -98,9 +98,17 @@ type IPv6 struct {
 	LanPrefixLen interface{} `json:"lan_prefix_len"` // "auto" or number
 }
 
-// DNS holds upstream resolver configuration.
+// StaticDNSRecord is a user-defined DNS name → IP mapping rendered into SmartDNS.
+// Name must end in ".lan"; IP must be a valid IPv4 or IPv6 address.
+type StaticDNSRecord struct {
+	Name string `json:"name"`
+	IP   string `json:"ip"`
+}
+
+// DNS holds upstream resolver configuration and user-defined static records.
 type DNS struct {
-	Upstreams []string `json:"upstreams"`
+	Upstreams     []string          `json:"upstreams"`
+	StaticRecords []StaticDNSRecord `json:"static_records"`
 }
 
 // Store wraps the config with a mutex for concurrent access from HTTP handlers.
@@ -267,6 +275,9 @@ func Validate(c *Config) error {
 			return fmt.Errorf("dns.upstreams[%d]: %w", i, err)
 		}
 	}
+	if err := validateStaticDNSRecords(c.DNS.StaticRecords); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -381,6 +392,55 @@ func isValidHostname(h string) bool {
 		}
 	}
 	return true
+}
+
+// reservedLanNames are the built-in SmartDNS records luban always generates;
+// users may not shadow them with static records.
+var reservedLanNames = map[string]bool{
+	"router.lan": true,
+	"br0.lan":    true,
+	"modem.lan":  true,
+}
+
+// validateStaticDNSRecords checks every user-defined static DNS record.
+func validateStaticDNSRecords(records []StaticDNSRecord) error {
+	seen := make(map[string]bool, len(records))
+	for i, rec := range records {
+		name := strings.ToLower(strings.TrimSpace(rec.Name))
+
+		// TLD validation — check .local before the generic .lan check so the
+		// error message explains *why* .local is rejected (mDNS reservation).
+		if strings.HasSuffix(name, ".local") {
+			return fmt.Errorf("dns.static_records[%d].name %q: .local is reserved for mDNS (RFC 6762); use .lan instead", i, rec.Name)
+		}
+		if !strings.HasSuffix(name, ".lan") {
+			return fmt.Errorf("dns.static_records[%d].name %q: only .lan domain is supported", i, rec.Name)
+		}
+
+		// Full hostname must be RFC1123-valid (all labels, including "lan").
+		if !isValidHostname(name) {
+			return fmt.Errorf("dns.static_records[%d].name %q: not a valid DNS name (RFC1123 labels required)", i, rec.Name)
+		}
+
+		// Reject built-in reserved names.
+		if reservedLanNames[name] {
+			return fmt.Errorf("dns.static_records[%d].name %q: reserved built-in name (cannot be overridden)", i, rec.Name)
+		}
+
+		// IP must parse as IPv4 or IPv6.
+		ip := strings.TrimSpace(rec.IP)
+		if net.ParseIP(ip) == nil {
+			return fmt.Errorf("dns.static_records[%d].ip %q: not a valid IPv4 or IPv6 address", i, rec.IP)
+		}
+
+		// Reject exact duplicates (same name + same ip).
+		key := name + "|" + ip
+		if seen[key] {
+			return fmt.Errorf("dns.static_records[%d]: duplicate record %q → %q", i, rec.Name, rec.IP)
+		}
+		seen[key] = true
+	}
+	return nil
 }
 
 func defaultConfig() Config {

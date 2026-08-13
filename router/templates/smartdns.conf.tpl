@@ -37,6 +37,14 @@ address /br0.lan/{{ .LanIP }}
 address /modem.lan/{{ .ModemIP }}
 {{- end }}
 
+{{- if .DNS.StaticRecords }}
+
+# User-defined static DNS records.
+{{- range .DNS.StaticRecords }}
+address /{{ .Name }}/{{ .IP }}
+{{- end }}
+{{- end }}
+
 # Log to journald via stderr (smartdns -f foreground mode in the systemd unit).
 log-console yes
 log-level info

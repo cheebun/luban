@@ -390,6 +390,62 @@ func TestRenderAll_RealTemplates_Unconfigured(t *testing.T) {
 	}
 }
 
+// TestRenderAll_RealTemplates_StaticDNSRecords renders with one IPv4 and one IPv6
+// static record and checks both address lines appear in smartdns.conf; then
+// confirms an empty list renders no static-records block.
+func TestRenderAll_RealTemplates_StaticDNSRecords(t *testing.T) {
+	baseDir := filepath.Dir(realTemplatesDir(t))
+
+	t.Run("with records", func(t *testing.T) {
+		cfg := sampleConfig("dhcp")
+		cfg.DNS.StaticRecords = []config.StaticDNSRecord{
+			{Name: "nas.lan", IP: "192.168.20.50"},
+			{Name: "cam.lan", IP: "2001:db8::2"},
+		}
+
+		data, err := apply.BuildTemplateData(cfg)
+		if err != nil {
+			t.Fatalf("BuildTemplateData: %v", err)
+		}
+		tmpDir, _, err := apply.RenderAll(baseDir, data)
+		if err != nil {
+			t.Fatalf("RenderAll: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+
+		smartdns := readRendered(t, tmpDir, "/etc/smartdns/smartdns.conf")
+		if !strings.Contains(smartdns, "address /nas.lan/192.168.20.50") {
+			t.Errorf("smartdns.conf missing IPv4 static record; got:\n%s", smartdns)
+		}
+		if !strings.Contains(smartdns, "address /cam.lan/2001:db8::2") {
+			t.Errorf("smartdns.conf missing IPv6 static record; got:\n%s", smartdns)
+		}
+		if !strings.Contains(smartdns, "User-defined static DNS records") {
+			t.Errorf("smartdns.conf missing static-records comment header; got:\n%s", smartdns)
+		}
+	})
+
+	t.Run("empty list renders nothing extra", func(t *testing.T) {
+		cfg := sampleConfig("dhcp")
+		// StaticRecords is nil/empty — no block should appear.
+
+		data, err := apply.BuildTemplateData(cfg)
+		if err != nil {
+			t.Fatalf("BuildTemplateData: %v", err)
+		}
+		tmpDir, _, err := apply.RenderAll(baseDir, data)
+		if err != nil {
+			t.Fatalf("RenderAll: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+
+		smartdns := readRendered(t, tmpDir, "/etc/smartdns/smartdns.conf")
+		if strings.Contains(smartdns, "User-defined static DNS records") {
+			t.Errorf("smartdns.conf should not contain static-records block when list is empty; got:\n%s", smartdns)
+		}
+	})
+}
+
 // TestRenderAll_RealTemplates_BridgeRoundTrip renders bridge then routed
 // (dhcp) then bridge again, checking each direction produces the mode's
 // expected output — i.e. switching away from bridge and back doesn't leave

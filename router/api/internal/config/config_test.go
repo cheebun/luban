@@ -338,6 +338,111 @@ func TestParseDNSUpstream(t *testing.T) {
 // written before the "configured" field existed (configured absent, defaults
 // to false) but with a non-empty wan.interface is normalized to configured=true
 // and the change is persisted so subsequent loads don't re-normalize.
+func TestValidate_StaticDNSRecords(t *testing.T) {
+	base := func(records []config.StaticDNSRecord) config.Config {
+		return config.Config{
+			WAN: config.WAN{Mode: "dhcp"},
+			LAN: config.LAN{Address: "192.168.1.1/24"},
+			DNS: config.DNS{StaticRecords: records},
+		}
+	}
+
+	cases := []struct {
+		name    string
+		records []config.StaticDNSRecord
+		wantErr bool
+	}{
+		{
+			name:    "empty list is valid",
+			records: nil,
+		},
+		{
+			name:    "valid IPv4 single-label",
+			records: []config.StaticDNSRecord{{Name: "nas.lan", IP: "192.168.20.10"}},
+		},
+		{
+			name:    "valid IPv6",
+			records: []config.StaticDNSRecord{{Name: "nas.lan", IP: "2001:db8::1"}},
+		},
+		{
+			name:    "valid multi-label",
+			records: []config.StaticDNSRecord{{Name: "a.b.lan", IP: "192.168.20.11"}},
+		},
+		{
+			name: "two distinct records",
+			records: []config.StaticDNSRecord{
+				{Name: "nas.lan", IP: "192.168.20.10"},
+				{Name: "cam.lan", IP: "192.168.20.11"},
+			},
+		},
+		{
+			name: "same name different IP is allowed",
+			records: []config.StaticDNSRecord{
+				{Name: "nas.lan", IP: "192.168.20.10"},
+				{Name: "nas.lan", IP: "192.168.20.11"},
+			},
+		},
+		{
+			name: "duplicate same name+ip rejected",
+			records: []config.StaticDNSRecord{
+				{Name: "nas.lan", IP: "192.168.20.10"},
+				{Name: "nas.lan", IP: "192.168.20.10"},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "reject .local — mDNS reservation",
+			records: []config.StaticDNSRecord{{Name: "nas.local", IP: "192.168.20.10"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject other TLD (.home)",
+			records: []config.StaticDNSRecord{{Name: "nas.home", IP: "192.168.20.10"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject reserved router.lan",
+			records: []config.StaticDNSRecord{{Name: "router.lan", IP: "192.168.20.1"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject reserved br0.lan",
+			records: []config.StaticDNSRecord{{Name: "br0.lan", IP: "192.168.20.1"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject reserved modem.lan",
+			records: []config.StaticDNSRecord{{Name: "modem.lan", IP: "192.168.1.1"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject invalid IP",
+			records: []config.StaticDNSRecord{{Name: "nas.lan", IP: "not-an-ip"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject invalid label (starts with dash)",
+			records: []config.StaticDNSRecord{{Name: "-nas.lan", IP: "192.168.20.10"}},
+			wantErr: true,
+		},
+		{
+			name:    "reject bare label without .lan",
+			records: []config.StaticDNSRecord{{Name: "nas", IP: "192.168.20.10"}},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := base(tc.records)
+			err := config.Validate(&c)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("Validate() err = %v; wantErr %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestNewStore_ConfiguredBackwardCompat(t *testing.T) {
 	dir := t.TempDir()
 	// Simulate a pre-wizard config: no "configured" field, but wan.interface set.
