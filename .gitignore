@@ -7,8 +7,8 @@ router/web/dist/
 *.min.js
 
 # Go build artifacts
-router/api/cmd/rui/rui
-router/api/rui
+router/api/cmd/luban/luban
+router/api/luban
 *.test
 /bin/
 

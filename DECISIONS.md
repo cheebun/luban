@@ -430,7 +430,7 @@ One-shot script that turns a clean Debian/Armbian into a working router:
 9. Print status + first-login URL
 
 The script must be idempotent — safe to re-run on an already-installed system.
-`install.sh` never writes `config.json` at all — `rui` seeds a valid default
+`install.sh` never writes `config.json` at all — `luban` seeds a valid default
 config on first boot if none exists. This avoids two independent producers of
 the config schema (a bash-templated default vs. the Go struct defaults)
 silently drifting apart; the Go loader is the only thing that ever creates a
@@ -456,7 +456,7 @@ test VM (Debian 13, amd64) is the recommended builder for amd64 bundles. See
 
 - **Upgrade** — remote upgrade (check + download + stage, reboot at 3:00 AM);
   auto upgrade (daily 3:00 AM check, disabled by default); local file upload.
-  Updates: `rui`, `www/`, `templates/`, `boards/`. Never touched: `config.json`,
+  Updates: `luban`, `www/`, `templates/`, `boards/`. Never touched: `config.json`,
   `boards.d/`, Caddyfile. Previous version in `.prev/`, auto-rollback on crash.
 - **Static DNS** — user-defined custom records via Web UI (e.g. `nas.lan → 192.168.x.x`);
   restricted to `.lan` (never `.local`, reserved for mDNS)
@@ -492,7 +492,7 @@ an npm package — Go modules don't enter the workspace).
 linux-router/            # monorepo
 ├── router/
 │   ├── web/             # @router/web — Vite + React + TS; `vite build` → www/ in the release
-│   ├── api/             # @router/api — Go source → builds the `rui` binary
+│   ├── api/             # @router/api — Go source → builds the `luban` binary
 │   ├── templates/       # service config templates (shipped as-is)
 │   └── boards/          # board profiles (shipped as-is)
 ├── scripts/
@@ -500,7 +500,7 @@ linux-router/            # monorepo
 └── pnpm-workspace.yaml  # JS packages only (router/web)
 ```
 
-Release tarball (GitHub Releases) is assembled from the monorepo: `rui` (per-arch) + `www/` +
+Release tarball (GitHub Releases) is assembled from the monorepo: `luban` (per-arch) + `www/` +
 `templates/` + `boards/`. The device never sees the repo — it only receives the release
 artifact (matches the existing "device only receives static files" rule).
 
@@ -508,7 +508,7 @@ artifact (matches the existing "device only receives static files" rule).
 
 ```
 /opt/router/
-├── rui              # Go binary
+├── luban            # Go binary
 ├── www/             # frontend (Caddy serves)
 ├── templates/       # service config templates
 ├── boards/          # system board profiles (updated with releases)
@@ -523,15 +523,17 @@ Project name: **Luban**, chosen 2026-08-12.
 
 | Artifact | Name |
 |---|---|
-| Go binary | `rui` |
+| Go binary | `luban` (renamed from `rui` on 2026-08-13; product name = binary name) |
 | Go module | `luban` |
 | JS workspace package | `@router/web` (unchanged) |
 | Web UI title | "Luban" |
 
-The binary name `rui` predates the project name and is kept for stability (no
-install-path churn). The Go module is `luban` to match the project identity. The
-JS package `@router/web` retains its existing scope (`@router`) — renaming would
-require pnpm-workspace changes with no functional benefit.
+The binary was originally named `rui` and renamed to `luban` on 2026-08-13 so
+the product name and binary name are identical. The Go module was already
+`luban` before this rename. The `install.sh` deploy step removes any stale
+`/opt/router/rui` left by older installs. The JS package `@router/web` retains
+its existing scope (`@router`) — renaming would require pnpm-workspace changes
+with no functional benefit.
 
 The PPPoE dialer unit is named plainly `pppd.service` (not `luban-pppd.service`):
 it just runs stock `pppd` for the WAN dial and Debian's `ppp` package ships no

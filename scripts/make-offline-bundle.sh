@@ -243,14 +243,14 @@ else
     command -v go   >/dev/null 2>&1 || die "Go toolchain not found on builder (required for --from-repo)"
     command -v pnpm >/dev/null 2>&1 || die "pnpm not found on builder (required for --from-repo)"
 
-    # Build Go binary (rui).
-    # go build ./... in router/api produces all binaries; we capture 'rui'
+    # Build Go binary (luban).
+    # go build ./... in router/api produces all binaries; we capture 'luban'
     # by building the main package directly.
-    info "  Building Go binary (rui)"
-    (cd "$REPO_ROOT/router/api" && go build -o "$WORK/luban/rui" .)
-    [[ -f "$WORK/luban/rui" ]] || die "go build did not produce rui binary"
-    chmod 755 "$WORK/luban/rui"
-    ok "rui binary built"
+    info "  Building Go binary (luban)"
+    (cd "$REPO_ROOT/router/api" && go build -o "$WORK/luban/luban" .)
+    [[ -f "$WORK/luban/luban" ]] || die "go build did not produce luban binary"
+    chmod 755 "$WORK/luban/luban"
+    ok "luban binary built"
 
     # Build web frontend.
     info "  Building web frontend"
@@ -280,7 +280,7 @@ fi
 ########################################################################
 info "Step 5: Generating manifest.txt"
 
-LUBAN_BIN="$WORK/luban/rui"
+LUBAN_BIN="$WORK/luban/luban"
 LUBAN_SHA=""
 [[ -f "$LUBAN_BIN" ]] && LUBAN_SHA="$(sha256sum "$LUBAN_BIN" | awk '{print $1}')"
 
@@ -297,7 +297,7 @@ smartdns_tag=${SD_TAG}
 smartdns_asset=${SD_PKG}
 
 # sha256sums
-$(sha256sum "$WORK/luban/rui" 2>/dev/null || echo "luban/rui: not present")
+$(sha256sum "$WORK/luban/luban" 2>/dev/null || echo "luban/luban: not present")
 $(sha256sum "$WORK/smartdns/"*.tar.gz 2>/dev/null | sed 's|.*/smartdns/|smartdns/|')
 
 # apt package count

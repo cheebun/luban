@@ -61,7 +61,7 @@ sudo bash scripts/make-offline-bundle.sh \
 ```
 
 The script runs `go build` in `router/api/` and `pnpm --filter @router/web
-build` to produce the `rui` binary and the `www/` frontend assets.
+build` to produce the `luban` binary and the `www/` frontend assets.
 
 ### Dependency-closure caveat
 
@@ -110,7 +110,7 @@ bash luban-offline-v1.2.3-amd64/install.sh --offline luban-offline-v1.2.3-amd64
 - All apt packages are installed from the bundle's `debs/` directory in a
   single transaction (apt handles dependency ordering for local `.deb` files).
 - The SmartDNS binary is extracted from the bundle's `smartdns/` directory.
-- The luban payload (`rui`, `www/`, `templates/`, `boards/`, `systemd/`) is
+- The luban payload (`luban`, `www/`, `templates/`, `boards/`, `systemd/`) is
   copied from the bundle's `luban/` directory.
 
 Everything after package installation — systemd unit setup, Caddyfile
@@ -127,7 +127,7 @@ luban-offline-<version>-<arch>.tar.gz
     ├── debs/                   # all apt packages + full dep closure (.deb files)
     ├── smartdns/               # SmartDNS GitHub release tarball (one file)
     ├── luban/                  # luban payload
-    │   ├── rui                 # Go backend binary
+    │   ├── luban               # Go backend binary
     │   ├── www/                # pre-built frontend (Vite output)
     │   ├── templates/          # service config templates
     │   ├── boards/             # board profiles
@@ -150,11 +150,11 @@ To upgrade a router that was installed from an offline bundle:
 The upgrade is safe and idempotent:
 - `config.json` is never overwritten by install.sh — your settings are preserved.
 - `boards.d/` (user-added board profiles) is never overwritten.
-- The `rui` binary, `www/`, `templates/`, and `boards/` are replaced with the
+- The `luban` binary, `www/`, `templates/`, and `boards/` are replaced with the
   new version.
 - All systemd units are reinstalled and reloaded.
 
-If the new release contains breaking config-schema changes, the `rui` binary
+If the new release contains breaking config-schema changes, the `luban` binary
 handles migration on first start (see the main upgrade documentation when
 that feature lands).
 
@@ -173,9 +173,9 @@ The bundle's `smartdns/` directory is empty or contains a tarball for a
 different architecture. Rebuild the bundle on a machine with the matching
 architecture.
 
-**install.sh exits with "Release missing: rui"**
+**install.sh exits with "Release missing: luban"**
 
 The bundle's `luban/` directory is missing the binary. This can happen if
 `--from-repo` was used and `go build` failed silently, or if the release
 tarball passed to `--release` was for a different architecture. Check
-`luban/rui` exists in the extracted bundle before installing.
+`luban/luban` exists in the extracted bundle before installing.

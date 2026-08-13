@@ -416,7 +416,7 @@ fi
 # STEP 6 — Deploy to /opt/router/
 #
 # Idempotency rules:
-#   rui, www/, templates/, boards/  — always updated from release
+#   luban, www/, templates/, boards/  — always updated from release
 #   boards.d/                       — created once, never touched again
 #   config.json                     — never overwritten (preserves user settings)
 ########################################################################
@@ -424,9 +424,11 @@ info "Step 6: Deploy to $INSTALL_DIR"
 
 mkdir -p "$INSTALL_DIR"
 
-[[ -f "${RELEASE_DIR}/rui" ]] || die "Release missing: rui"
-install -m 755 "${RELEASE_DIR}/rui" "${INSTALL_DIR}/rui"
-ok "rui binary deployed"
+[[ -f "${RELEASE_DIR}/luban" ]] || die "Release missing: luban"
+install -m 755 "${RELEASE_DIR}/luban" "${INSTALL_DIR}/luban"
+# Migration: remove stale binary from previous installs that used the old name.
+rm -f "${INSTALL_DIR}/rui"
+ok "luban binary deployed"
 
 for asset in www templates boards; do
     if [[ -d "${RELEASE_DIR}/${asset}" ]]; then
@@ -444,13 +446,13 @@ else
     ok "$INSTALL_DIR/boards.d/ already exists — left untouched"
 fi
 
-# config.json — install.sh never writes this file. The rui binary seeds a
+# config.json — install.sh never writes this file. The luban binary seeds a
 # valid default (internal/config.NewStore) on first start if it is missing.
 # We only need INSTALL_DIR to exist, which the mkdir -p above already ensured.
 if [[ -f "${INSTALL_DIR}/config.json" ]]; then
     ok "config.json already exists — left untouched"
 else
-    ok "config.json absent — rui will seed a default config on first start"
+    ok "config.json absent — luban will seed a default config on first start"
 fi
 
 ########################################################################

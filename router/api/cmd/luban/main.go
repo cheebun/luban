@@ -1,4 +1,4 @@
-// Command rui is the luban router UI backend.
+// Command luban is the luban router UI backend.
 // It listens on a unix socket and serves the /api/* endpoints.
 package main
 

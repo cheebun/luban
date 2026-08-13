@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Machine-readable rules for AI coding tools working on **Luban**, a
-self-built Linux router (Debian/Armbian, Go backend `rui` + React web UI).
+self-built Linux router (Debian/Armbian, Go backend `luban` + React web UI).
 Code, comments, and commits are English only; the UI itself is Chinese.
 
 For *why* behind any rule here, see [DECISIONS.md](DECISIONS.md) — this file
@@ -28,7 +28,7 @@ pnpm --filter @router/web lint     # oxlint src/
 pnpm --filter @router/web format   # oxfmt src/
 ```
 
-### `router/api/` (Go module `luban`, binary `rui`)
+### `router/api/` (Go module `luban`, binary `luban`)
 
 ```bash
 cd router/api

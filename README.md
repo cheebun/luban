@@ -21,7 +21,7 @@ See [DECISIONS.md](DECISIONS.md) for the reasoning behind these choices.
 
 ```
 Browser ──HTTPS──▶ Caddy ──┬─▶ static files (www/, React SPA)
-                            └─▶ /api/* ──▶ unix:/run/router/api.sock ──▶ rui (Go, root)
+                            └─▶ /api/* ──▶ unix:/run/router/api.sock ──▶ luban (Go, root)
 
 config.json ──▶ templates/*.tpl ──▶ /etc/{dnsmasq,smartdns,nftables,...} + systemd-networkd
 ```
@@ -37,7 +37,7 @@ files and restarts services — no Go process required for rollback to work.
 
 | Path | Contents |
 |---|---|
-| `router/api/` | Go backend (`rui` binary), Go module `luban` |
+| `router/api/` | Go backend (`luban` binary), Go module `luban` |
 | `router/web/` | React + Vite + TypeScript frontend, package `@router/web` |
 | `router/templates/` | Go `text/template` files for every generated service config |
 | `router/boards/` | Board profiles (WAN/LAN/WiFi port mapping by device path) |
