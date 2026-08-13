@@ -301,10 +301,10 @@ func (s *Server) handleWizardComplete(w http.ResponseWriter, r *http.Request) {
 	// ── Derive the new admin URL ───────────────────────────────────────────────
 
 	lanIP, _, _ := net.ParseCIDR(lanAddress)
-	url := "https://" + lanIP.String()
+	newURL := "https://" + lanIP.String() + "/"
 
-	slog.Info("wizard complete", "wan", req.WANInterface, "lan", strings.Join(req.LANInterfaces, ","), "url", url)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "url": url})
+	slog.Info("wizard complete", "wan", req.WANInterface, "lan", strings.Join(req.LANInterfaces, ","), "url", newURL)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "new_url": newURL})
 }
 
 // boardsDir returns the path to the shipped board profiles directory.
