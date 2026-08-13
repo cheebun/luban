@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+router/web/dist/
+*.min.js
+
+# Go build artifacts
+router/api/cmd/rui/rui
+router/api/rui
+*.test
+/bin/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+
+# Temp
+tmp/
+temp/
+.cache/
+/tmp/
+
+# Lock files (use pnpm)
+package-lock.json
+yarn.lock
+
+# Claude local settings (keep other .claude files trackable)
+.claude/settings.local.json
