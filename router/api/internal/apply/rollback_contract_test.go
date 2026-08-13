@@ -31,7 +31,7 @@ func TestRollbackScriptContract(t *testing.T) {
 	dir := systemdDir(t)
 
 	scriptPath := filepath.Join(dir, "router-rollback.sh")
-	scriptBytes, err := os.ReadFile(scriptPath)
+	scriptBytes, err := os.ReadFile(scriptPath) //nolint:gosec // G304: path is derived from a test-only helper that resolves a known sibling directory
 	if err != nil {
 		t.Skipf("router-rollback.sh not found at %s: %v", scriptPath, err)
 	}
@@ -76,7 +76,7 @@ func TestRollbackScriptContract(t *testing.T) {
 		if absErr == nil && absPath == selfPath {
 			return nil
 		}
-		b, readErr := os.ReadFile(path)
+		b, readErr := os.ReadFile(path) //nolint:gosec // G304: path comes from filepath.WalkDir over a trusted project directory
 		if readErr != nil {
 			return readErr
 		}

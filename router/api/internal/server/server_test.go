@@ -3,6 +3,9 @@ package server_test
 import (
 	"context"
 	"fmt"
+	"luban/internal/auth"
+	"luban/internal/config"
+	"luban/internal/server"
 	"net"
 	"net/http"
 	"os"
@@ -10,10 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"luban/internal/auth"
-	"luban/internal/config"
-	"luban/internal/server"
 )
 
 // TestServer_StartsWithNoConfigPresent reproduces the fresh-install scenario:
@@ -39,7 +38,7 @@ func TestServer_StartsWithNoConfigPresent(t *testing.T) {
 	// ~104 bytes, so a nested path can silently fail to bind.
 	sockPath := filepath.Join(os.TempDir(), fmt.Sprintf("luban-test-%d.sock", os.Getpid()))
 	_ = os.Remove(sockPath)
-	defer os.Remove(sockPath)
+	defer func() { _ = os.Remove(sockPath) }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -66,7 +65,7 @@ func TestServer_StartsWithNoConfigPresent(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				return net.Dial("unix", sockPath)
 			},
 		},
@@ -78,7 +77,7 @@ func TestServer_StartsWithNoConfigPresent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request over unix socket failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("login with wrong password: status = %d; want %d", resp.StatusCode, http.StatusUnauthorized)
 	}
@@ -122,7 +121,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 
 	sockPath := filepath.Join(os.TempDir(), fmt.Sprintf("luban-test-logout-%d.sock", os.Getpid()))
 	_ = os.Remove(sockPath)
-	defer os.Remove(sockPath)
+	defer func() { _ = os.Remove(sockPath) }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -148,7 +147,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				return net.Dial("unix", sockPath)
 			},
 		},
@@ -160,7 +159,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login request: %v", err)
 	}
-	defer loginResp.Body.Close()
+	defer func() { _ = loginResp.Body.Close() }()
 	if loginResp.StatusCode != http.StatusOK {
 		t.Fatalf("login: status = %d; want 200", loginResp.StatusCode)
 	}
@@ -179,7 +178,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status request: %v", err)
 	}
-	defer statusResp.Body.Close()
+	defer func() { _ = statusResp.Body.Close() }()
 	if statusResp.StatusCode != http.StatusOK {
 		t.Fatalf("status: status = %d; want 200", statusResp.StatusCode)
 	}
@@ -204,7 +203,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("logout request: %v", err)
 	}
-	defer logoutResp.Body.Close()
+	defer func() { _ = logoutResp.Body.Close() }()
 	if logoutResp.StatusCode != http.StatusOK {
 		t.Fatalf("logout: status = %d; want 200", logoutResp.StatusCode)
 	}
@@ -218,7 +217,7 @@ func TestServer_LoginRefreshesCookieAndLogoutRevokes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post-logout status request: %v", err)
 	}
-	defer postLogoutResp.Body.Close()
+	defer func() { _ = postLogoutResp.Body.Close() }()
 	if postLogoutResp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("status after logout: status = %d; want 401", postLogoutResp.StatusCode)
 	}

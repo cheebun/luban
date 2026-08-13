@@ -13,13 +13,12 @@ package apply_test
 // (e.g. when internal/apply is vendored or copied out of the monorepo).
 
 import (
+	"luban/internal/apply"
+	"luban/internal/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"luban/internal/apply"
-	"luban/internal/config"
 )
 
 // readRendered reads a rendered output file (given its absolute deployed
@@ -27,7 +26,7 @@ import (
 func readRendered(t *testing.T, tmpDir, outputPath string) string {
 	t.Helper()
 	outRel := filepath.FromSlash(strings.TrimPrefix(outputPath, "/"))
-	data, err := os.ReadFile(filepath.Join(tmpDir, outRel))
+	data, err := os.ReadFile(filepath.Join(tmpDir, outRel)) //nolint:gosec // G304: path is inside our own temp dir, not user input
 	if err != nil {
 		t.Fatalf("read rendered %s: %v", outputPath, err)
 	}
@@ -118,7 +117,7 @@ func TestRenderAll_RealTemplates(t *testing.T) {
 			if err != nil {
 				t.Fatalf("RenderAll(%s): %v", mode, err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			if len(entries) == 0 {
 				t.Fatal("expected at least one rendered entry")
@@ -173,7 +172,7 @@ func TestRenderAll_RealTemplates_ManualDNS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderAll: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	dnsmasqConf := readRendered(t, tmpDir, "/etc/dnsmasq.d/router.conf")
 	want := "dhcp-option=option:dns-server,1.1.1.1,8.8.8.8"
@@ -203,7 +202,7 @@ func TestRenderAll_RealTemplates_MTUOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderAll: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	wanNet := readRendered(t, tmpDir, "/etc/systemd/network/10-wan.network")
 	if !strings.Contains(wanNet, "MTUBytes=1400") {
@@ -237,7 +236,7 @@ func TestRenderAll_RealTemplates_MSSOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderAll: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	nft := readRendered(t, tmpDir, "/etc/nftables.conf")
 	want := "tcp option maxseg size set 1360"
@@ -271,7 +270,7 @@ func TestRenderAll_RealTemplates_Bridge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderAll: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	wanNet := readRendered(t, tmpDir, "/etc/systemd/network/10-wan.network")
 	if !strings.Contains(wanNet, "Bridge=br0") {
@@ -338,7 +337,7 @@ func TestRenderAll_RealTemplates_BridgeRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RenderAll(%s): %v", mode, err)
 		}
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 		return readRendered(t, tmpDir, "/etc/systemd/network/10-wan.network"),
 			readRendered(t, tmpDir, "/etc/systemd/network/20-br0.network")
 	}

@@ -6,17 +6,16 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"net"
-	"net/http"
-	"os"
-	"os/exec"
-	"time"
-
 	"luban/internal/apply"
 	"luban/internal/auth"
 	"luban/internal/config"
 	"luban/internal/health"
 	"luban/internal/status"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"time"
 )
 
 // Server holds all dependencies shared across handlers.
@@ -38,7 +37,7 @@ func (s *Server) ListenAndServe(ctx context.Context, sockPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Chmod(sockPath, 0660); err != nil {
+	if err := os.Chmod(sockPath, 0o660); err != nil { //nolint:gosec // G302: Unix socket at 0660 is intentional; Caddy (same group) must be able to connect
 		slog.Warn("chmod socket", "err", err)
 	}
 
@@ -46,10 +45,10 @@ func (s *Server) ListenAndServe(ctx context.Context, sockPath string) error {
 	s.registerRoutes(mux)
 
 	srv := &http.Server{
-		Handler:     mux,
-		ReadTimeout: 30 * time.Second,
+		Handler:      mux,
+		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 60 * time.Second,
-		IdleTimeout: 120 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
@@ -235,7 +234,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleConfigGet(w http.ResponseWriter, _ *http.Request) {
 	cfg := s.store.Get()
 	writeJSON(w, http.StatusOK, cfg)
 }
@@ -304,7 +303,7 @@ func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "journalctl", "-u", "router-ui", "-n", lines, "--no-pager", "--output=short-iso")
+	cmd := exec.CommandContext(ctx, "journalctl", "-u", "router-ui", "-n", lines, "--no-pager", "--output=short-iso") //nolint:gosec // G702: lines is passed as a distinct arg to exec (no shell expansion); journalctl treats it as a count, not a command
 	out, err := cmd.Output()
 	if err != nil {
 		// journald may not be present in dev — return empty log rather than error
@@ -314,7 +313,7 @@ func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"log": string(out)})
 }
 
-func (s *Server) handleReboot(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleReboot(w http.ResponseWriter, _ *http.Request) {
 	slog.Info("reboot requested via API")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	// Flush the response before rebooting.
@@ -358,7 +357,7 @@ func (s *Server) handleServiceRestart(w http.ResponseWriter, r *http.Request) {
 		if fl, ok := w.(http.Flusher); ok {
 			fl.Flush()
 		}
-		go func() {
+		go func() { //nolint:gosec // G118: context.Background is deliberate — the request context is cancelled before this goroutine runs
 			time.Sleep(500 * time.Millisecond)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()

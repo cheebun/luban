@@ -2,10 +2,9 @@ package health_test
 
 import (
 	"context"
+	"luban/internal/health"
 	"testing"
 	"time"
-
-	"luban/internal/health"
 )
 
 // TestCollect_DegradesGracefully exercises the real Collect() path — which

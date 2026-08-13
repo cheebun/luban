@@ -15,7 +15,7 @@ func TestCopyFilePreserveMode_KeepsSourceMode(t *testing.T) {
 	src := filepath.Join(dir, "chap-secrets")
 	dst := filepath.Join(dir, "chap-secrets.bak")
 
-	if err := os.WriteFile(src, []byte("user * secret *\n"), 0600); err != nil {
+	if err := os.WriteFile(src, []byte("user * secret *\n"), 0o600); err != nil {
 		t.Fatalf("write src: %v", err)
 	}
 
@@ -27,7 +27,7 @@ func TestCopyFilePreserveMode_KeepsSourceMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat dst: %v", err)
 	}
-	if got := info.Mode().Perm(); got != 0600 {
+	if got := info.Mode().Perm(); got != 0o600 {
 		t.Errorf("dst mode = %o, want 0600", got)
 	}
 
@@ -41,7 +41,7 @@ func TestCopyFilePreserveMode_KeepsSourceMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat restored: %v", err)
 	}
-	if got := info.Mode().Perm(); got != 0600 {
+	if got := info.Mode().Perm(); got != 0o600 {
 		t.Errorf("restored mode = %o, want 0600", got)
 	}
 }

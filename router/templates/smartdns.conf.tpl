@@ -13,7 +13,7 @@ bind {{ .LanIP }}:53
 {{- end }}
 
 # Upstream resolvers.
-{{- range .DnsUpstreamLines }}
+{{- range .DNSUpstreamLines }}
 {{ . }}
 {{- end }}
 

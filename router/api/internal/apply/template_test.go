@@ -1,11 +1,10 @@
 package apply_test
 
 import (
-	"strings"
-	"testing"
-
 	"luban/internal/apply"
 	"luban/internal/config"
+	"strings"
+	"testing"
 )
 
 func baseConfig() config.Config {
@@ -139,7 +138,7 @@ func TestRenderOne_Fixture(t *testing.T) {
 	}
 }
 
-func TestBuildTemplateData_DnsUpstreamLines(t *testing.T) {
+func TestBuildTemplateData_DNSUpstreamLines(t *testing.T) {
 	cfg := baseConfig()
 	cfg.DNS.Upstreams = []string{
 		"119.29.29.29",
@@ -163,12 +162,12 @@ func TestBuildTemplateData_DnsUpstreamLines(t *testing.T) {
 		"server-quic dns.adguard.com:853",
 		"server-h3 h3://cloudflare-dns.com/dns-query",
 	}
-	if len(d.DnsUpstreamLines) != len(want) {
-		t.Fatalf("DnsUpstreamLines = %v; want %v", d.DnsUpstreamLines, want)
+	if len(d.DNSUpstreamLines) != len(want) {
+		t.Fatalf("DNSUpstreamLines = %v; want %v", d.DNSUpstreamLines, want)
 	}
 	for i, line := range want {
-		if d.DnsUpstreamLines[i] != line {
-			t.Errorf("DnsUpstreamLines[%d] = %q; want %q", i, d.DnsUpstreamLines[i], line)
+		if d.DNSUpstreamLines[i] != line {
+			t.Errorf("DNSUpstreamLines[%d] = %q; want %q", i, d.DNSUpstreamLines[i], line)
 		}
 	}
 }

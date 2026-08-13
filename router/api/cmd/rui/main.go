@@ -6,13 +6,12 @@ import (
 	"context"
 	"flag"
 	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"luban/internal/auth"
 	"luban/internal/config"
 	"luban/internal/server"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {

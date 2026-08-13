@@ -24,16 +24,19 @@ type Config struct {
 	DNS    DNS    `json:"dns"`
 }
 
+// System holds system-level settings such as hostname and admin credentials.
 type System struct {
 	Hostname string `json:"hostname"`
 	Admin    Admin  `json:"admin"`
 }
 
+// Admin holds the admin account credentials.
 type Admin struct {
 	PasswordHash string `json:"password_hash"`
 	MustChange   bool   `json:"must_change"`
 }
 
+// WAN holds wide-area network connection settings.
 type WAN struct {
 	Mode      string    `json:"mode"` // "dhcp" | "static" | "pppoe" | "bridge"
 	Interface string    `json:"interface"`
@@ -47,23 +50,27 @@ type WAN struct {
 	MSS int `json:"mss"`
 }
 
+// StaticWAN holds configuration for a static WAN IP address.
 type StaticWAN struct {
 	Address string   `json:"address"`
 	Gateway string   `json:"gateway"`
 	DNS     []string `json:"dns"`
 }
 
+// PPPoEWAN holds PPPoE dial-up credentials.
 type PPPoEWAN struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// LAN holds local area network settings.
 type LAN struct {
 	Interfaces []string `json:"interfaces"`
 	Address    string   `json:"address"` // CIDR, e.g. "192.168.20.1/24"
 	DHCP       DHCP     `json:"dhcp"`
 }
 
+// DHCP holds DHCP server configuration for the LAN.
 type DHCP struct {
 	Enabled bool   `json:"enabled"`
 	Start   string `json:"start"`
@@ -79,11 +86,13 @@ type DHCP struct {
 	DNSServers []string `json:"dns_servers"`
 }
 
+// IPv6 holds IPv6 and prefix-delegation settings.
 type IPv6 struct {
 	Enabled      bool        `json:"enabled"`
 	LanPrefixLen interface{} `json:"lan_prefix_len"` // "auto" or number
 }
 
+// DNS holds upstream resolver configuration.
 type DNS struct {
 	Upstreams []string `json:"upstreams"`
 }
@@ -100,7 +109,7 @@ func NewStore(baseDir string) (*Store, error) {
 	path := filepath.Join(baseDir, "config.json")
 	s := &Store{cfgPath: path}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is constructed from a trusted baseDir flag, not user input
 	if errors.Is(err, os.ErrNotExist) {
 		s.cfg = defaultConfig()
 		if writeErr := s.save(); writeErr != nil {
@@ -171,7 +180,7 @@ func (s *Store) save() error {
 	}
 	// Write atomically via temp file + rename so a partial write never corrupts config.json.
 	tmp := s.cfgPath + ".tmp"
-	if err := os.WriteFile(tmp, data, 0640); err != nil {
+	if err := os.WriteFile(tmp, data, 0o640); err != nil { //nolint:gosec // G306: 0640 (owner rw, group r) is intentional so the web service group can read config.json
 		return err
 	}
 	return os.Rename(tmp, s.cfgPath)

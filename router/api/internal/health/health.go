@@ -8,12 +8,11 @@ package health
 import (
 	"context"
 	"errors"
+	"luban/internal/status"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-
-	"luban/internal/status"
 )
 
 const cmdTimeout = 5 * time.Second

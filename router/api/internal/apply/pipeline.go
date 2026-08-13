@@ -63,8 +63,8 @@ func Pipeline(ctx context.Context, baseDir string, data TemplateData) error {
 
 	// Step 6: write unconfirmed-apply flag and arm the rollback timer
 	flagPath := rollbackFlagPath(baseDir)
-	_ = os.MkdirAll(baseDir, 0755)
-	if err := os.WriteFile(flagPath, []byte("1"), 0644); err != nil {
+	_ = os.MkdirAll(baseDir, 0o755)                                    //nolint:gosec // G301: 0755 is correct for system config directories on a dedicated router
+	if err := os.WriteFile(flagPath, []byte("1"), 0o644); err != nil { //nolint:gosec // G306: rollback flag is a sentinel file, 0644 is appropriate
 		slog.Warn("write rollback flag", "err", err)
 	}
 	if err := runCmd(ctx, "systemctl", "start", rollbackTimer); err != nil {
@@ -162,7 +162,7 @@ func dryRunValidate(ctx context.Context, tmpDir string) error {
 	return nil
 }
 
-func installRendered(tmpDir string, entries []renderEntry) error {
+func installRendered(tmpDir string, entries []RenderEntry) error {
 	for _, e := range entries {
 		src := filepath.Join(tmpDir, filepath.FromSlash(e.OutputPath[1:]))
 		if _, err := os.Stat(src); err != nil {
@@ -176,7 +176,7 @@ func installRendered(tmpDir string, entries []renderEntry) error {
 				slog.Warn("backup file", "path", e.OutputPath, "err", bakErr)
 			}
 		}
-		if err := os.MkdirAll(filepath.Dir(e.OutputPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(e.OutputPath), 0o755); err != nil { //nolint:gosec // G301: 0755 is correct for /etc/systemd/network and similar system directories
 			return fmt.Errorf("mkdir %s: %w", e.OutputPath, err)
 		}
 		if err := copyFileMode(src, e.OutputPath, e.Mode); err != nil {
@@ -222,7 +222,7 @@ func runCmd(ctx context.Context, name string, args ...string) error {
 }
 
 func copyFile(src, dst string) error {
-	return copyFileMode(src, dst, 0644)
+	return copyFileMode(src, dst, 0o644)
 }
 
 // copyFilePreserveMode copies src to dst using src's own current permission
@@ -238,15 +238,15 @@ func copyFilePreserveMode(src, dst string) error {
 }
 
 func copyFileMode(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) //nolint:gosec // G304: src is always a path inside our own temp dir or a trusted system path, never derived from user input
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	if mode == 0 {
-		mode = 0644
+		mode = 0o644
 	}
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode) //nolint:gosec // G304: dst is a system path from the render table or a temp dir path, not user input
 	if err != nil {
 		return err
 	}

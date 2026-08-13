@@ -1,0 +1,33 @@
+version: "2"
+
+# Pin to the go version in go.mod so the linter agrees on language features.
+run:
+  go: "1.23"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - revive
+    - unused
+    - misspell
+    - gosec
+
+  settings:
+    gosec:
+      excludes:
+        # G204: subprocess launched with a variable — intentional here; all
+        # exec calls in pipeline.go use hard-coded arg-lists (systemctl, nft,
+        # dnsmasq, …) built from const strings, never from user-supplied data.
+        - G204
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+  settings:
+    gofumpt:
+      extra-rules: true

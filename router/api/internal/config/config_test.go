@@ -1,11 +1,10 @@
 package config_test
 
 import (
+	"luban/internal/config"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"luban/internal/config"
 )
 
 func TestNewStore_DefaultCreated(t *testing.T) {
@@ -35,7 +34,7 @@ func TestNewStore_LoadExisting(t *testing.T) {
 		"ipv6":{"enabled":false,"lan_prefix_len":"auto"},
 		"dns":{"upstreams":[]}
 	}`
-	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0640); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0o640); err != nil { //nolint:gosec // G306: matching production 0640 permission in test fixture
 		t.Fatal(err)
 	}
 	s, err := config.NewStore(dir)
@@ -61,7 +60,7 @@ func TestNewStore_LoadExisting_MissingDNSMode(t *testing.T) {
 		"ipv6":{"enabled":false,"lan_prefix_len":"auto"},
 		"dns":{"upstreams":[]}
 	}`
-	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0640); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0o640); err != nil { //nolint:gosec // G306: matching production 0640 permission in test fixture
 		t.Fatal(err)
 	}
 	s, err := config.NewStore(dir)

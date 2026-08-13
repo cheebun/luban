@@ -3,14 +3,13 @@ package apply
 
 import (
 	"fmt"
+	"luban/internal/config"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
-
-	"luban/internal/config"
 )
 
 // templateFuncs is registered on every parsed template. "join" mirrors
@@ -47,9 +46,9 @@ type TemplateData struct {
 	ModemIP string
 	// Port is the current LAN interface name; only set while rendering a per-port template.
 	Port string
-	// DnsUpstreamLines is DNS.Upstreams converted to full smartdns directive
+	// DNSUpstreamLines is DNS.Upstreams converted to full smartdns directive
 	// lines, e.g. "server-tls dns.google:853" (see config.ParseDNSUpstream).
-	DnsUpstreamLines []string
+	DNSUpstreamLines []string
 	// DhcpDNSServers is the DNS server list pushed to DHCP clients via
 	// option 6: [LanIP] (self, i.e. SmartDNS) when lan.dhcp.dns_mode is
 	// "auto", or lan.dhcp.dns_servers verbatim when "manual".
@@ -140,7 +139,7 @@ func BuildTemplateData(cfg config.Config) (TemplateData, error) {
 		d.ModemIP = cfg.WAN.ModemIP
 	}
 
-	d.DnsUpstreamLines = make([]string, 0, len(cfg.DNS.Upstreams))
+	d.DNSUpstreamLines = make([]string, 0, len(cfg.DNS.Upstreams))
 	for _, u := range cfg.DNS.Upstreams {
 		line, err := config.ParseDNSUpstream(u)
 		if err != nil {
@@ -149,7 +148,7 @@ func BuildTemplateData(cfg config.Config) (TemplateData, error) {
 			// instead of rendering a malformed smartdns.conf.
 			return d, fmt.Errorf("dns.upstreams: %w", err)
 		}
-		d.DnsUpstreamLines = append(d.DnsUpstreamLines, line)
+		d.DNSUpstreamLines = append(d.DNSUpstreamLines, line)
 	}
 
 	return d, nil
@@ -168,8 +167,8 @@ func parseIpv6PrefixLen(v interface{}) int {
 	}
 }
 
-// renderEntry maps a template file name to its output path on the deployed system.
-type renderEntry struct {
+// RenderEntry maps a template file name to its output path on the deployed system.
+type RenderEntry struct {
 	// TemplateFile is the filename inside <basedir>/templates/.
 	TemplateFile string
 	// OutputPath is the absolute path on the filesystem where the rendered file is written.
@@ -187,7 +186,7 @@ const lanPortTemplateFile = "networkd-lan-port.network.tpl"
 // Template authors must keep filenames consistent with these entries.
 // It does NOT include the per-LAN-port entries; those are appended by
 // expandRenderTable once the set of LAN interfaces is known.
-var renderTable = []renderEntry{
+var renderTable = []RenderEntry{
 	{TemplateFile: "networkd-wan.network.tpl", OutputPath: "/etc/systemd/network/10-wan.network"},
 	{TemplateFile: "networkd-br0.netdev.tpl", OutputPath: "/etc/systemd/network/15-br0.netdev"},
 	{TemplateFile: "networkd-br0.network.tpl", OutputPath: "/etc/systemd/network/20-br0.network"},
@@ -197,7 +196,7 @@ var renderTable = []renderEntry{
 	{TemplateFile: "nftables.conf.tpl", OutputPath: "/etc/nftables.conf"},
 	{TemplateFile: "sysctl.conf.tpl", OutputPath: "/etc/sysctl.d/99-router.conf"},
 	{TemplateFile: "ppp-peers-wan.tpl", OutputPath: "/etc/ppp/peers/wan"},
-	{TemplateFile: "chap-secrets.tpl", OutputPath: "/etc/ppp/chap-secrets", Mode: 0600},
+	{TemplateFile: "chap-secrets.tpl", OutputPath: "/etc/ppp/chap-secrets", Mode: 0o600},
 	{TemplateFile: "Caddyfile.tpl", OutputPath: "/etc/caddy/Caddyfile"},
 }
 
@@ -208,11 +207,11 @@ var renderTable = []renderEntry{
 // "/etc/systemd/network/*.network.bak" / "*.netdev.bak" glob, matching the
 // ".bak"-beside-each-file backup scheme used by installRendered/Rollback in
 // pipeline.go.
-func expandRenderTable(data TemplateData) []renderEntry {
-	entries := make([]renderEntry, 0, len(renderTable)+len(data.LAN.Interfaces))
+func expandRenderTable(data TemplateData) []RenderEntry {
+	entries := make([]RenderEntry, 0, len(renderTable)+len(data.LAN.Interfaces))
 	entries = append(entries, renderTable...)
 	for i, port := range data.LAN.Interfaces {
-		entries = append(entries, renderEntry{
+		entries = append(entries, RenderEntry{
 			TemplateFile: lanPortTemplateFile,
 			OutputPath:   fmt.Sprintf("/etc/systemd/network/4%d-lan-%s.network", i, port),
 			Port:         port,
@@ -225,7 +224,7 @@ func expandRenderTable(data TemplateData) []renderEntry {
 // Returns the temp dir path and the concrete entries that were rendered
 // (including per-LAN-port expansion); caller is responsible for tmpDir cleanup.
 // Each missing template file results in a clear error, not a panic.
-func RenderAll(baseDir string, data TemplateData) (tmpDir string, entries []renderEntry, err error) {
+func RenderAll(baseDir string, data TemplateData) (tmpDir string, entries []RenderEntry, err error) {
 	tmpDir, err = os.MkdirTemp("", "luban-render-*")
 	if err != nil {
 		return "", nil, fmt.Errorf("mktemp: %w", err)
@@ -247,7 +246,7 @@ func RenderAll(baseDir string, data TemplateData) (tmpDir string, entries []rend
 		t, ok := parsed[e.TemplateFile]
 		if !ok {
 			tplPath := filepath.Join(baseDir, "templates", e.TemplateFile)
-			tplSrc, readErr := os.ReadFile(tplPath)
+			tplSrc, readErr := os.ReadFile(tplPath) //nolint:gosec // G304: tplPath is composed from trusted baseDir + hardcoded template filenames from the render table
 			if readErr != nil {
 				if os.IsNotExist(readErr) {
 					return "", nil, fmt.Errorf("template %q not found at %s", e.TemplateFile, tplPath)
@@ -264,15 +263,15 @@ func RenderAll(baseDir string, data TemplateData) (tmpDir string, entries []rend
 		// Mirror the output path hierarchy inside tmpDir.
 		outRel := strings.TrimPrefix(e.OutputPath, "/")
 		outAbs := filepath.Join(tmpDir, outRel)
-		if mkdirErr := os.MkdirAll(filepath.Dir(outAbs), 0755); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(filepath.Dir(outAbs), 0o755); mkdirErr != nil { //nolint:gosec // G301: temp dir hierarchy mirrors system paths; world-readable is appropriate
 			return "", nil, fmt.Errorf("mkdir for %s: %w", e.TemplateFile, mkdirErr)
 		}
 
 		mode := e.Mode
 		if mode == 0 {
-			mode = 0644
+			mode = 0o644
 		}
-		f, createErr := os.OpenFile(outAbs, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+		f, createErr := os.OpenFile(outAbs, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode) //nolint:gosec // G304: outAbs is inside our own temp dir, not derived from user input
 		if createErr != nil {
 			return "", nil, fmt.Errorf("create output for %s: %w", e.TemplateFile, createErr)
 		}

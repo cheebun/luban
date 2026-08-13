@@ -1,12 +1,11 @@
 package auth_test
 
 import (
+	"luban/internal/auth"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"luban/internal/auth"
 )
 
 func TestHashAndCheck(t *testing.T) {
@@ -85,7 +84,7 @@ func TestSession_Expiry(t *testing.T) {
 func TestSession_InvalidToken(t *testing.T) {
 	m := auth.NewManager()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{Name: "session", Value: "notreal"})
+	req.AddCookie(&http.Cookie{Name: "session", Value: "notreal"}) //nolint:gosec // G124: unit-test cookie; Secure/HttpOnly not applicable outside a real TLS connection
 
 	_, ok := m.Validate(req)
 	if ok {

@@ -23,7 +23,7 @@ func TestMiddleware_RefreshesCookieOnActivity(t *testing.T) {
 		t.Fatal("no cookie set after login")
 	}
 
-	handler := m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -64,12 +64,12 @@ func TestMiddleware_ExpiresAfterInactivity(t *testing.T) {
 	m.sessions[token].lastActive = time.Now().Add(-sessionTTL - time.Minute)
 	m.mu.Unlock()
 
-	handler := m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
-	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token}) //nolint:gosec // G124: unit-test cookie; Secure/HttpOnly not applicable outside a real TLS connection
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -91,7 +91,7 @@ func TestLogout_ClearsAnyQueuedRefreshCookie(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
-	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token}) //nolint:gosec // G124: unit-test cookie; Secure/HttpOnly not applicable outside a real TLS connection
 
 	rec := httptest.NewRecorder()
 	// Simulate the middleware's refresh already having queued a Set-Cookie.

@@ -1,11 +1,10 @@
 package status_test
 
 import (
+	"luban/internal/status"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"luban/internal/status"
 )
 
 func TestParseDNSMasqLeases(t *testing.T) {
@@ -16,7 +15,7 @@ func TestParseDNSMasqLeases(t *testing.T) {
 `
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dnsmasq.leases")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec // G306: test fixture file, 0644 is appropriate
 		t.Fatal(err)
 	}
 
@@ -47,11 +46,11 @@ func TestParseDNSMasqLeases(t *testing.T) {
 func TestParseDNSMasqLeases_Empty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dnsmasq.leases")
-	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(""), 0o644); err != nil { //nolint:gosec // G306: test fixture file, 0644 is appropriate
 		t.Fatal(err)
 	}
 	leases := status.ParseLeasesFile(path)
-	if leases != nil && len(leases) != 0 {
+	if len(leases) != 0 {
 		t.Errorf("expected nil/empty slice for empty file, got %v", leases)
 	}
 }

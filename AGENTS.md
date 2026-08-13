@@ -9,6 +9,16 @@ states the *what*, not the reasoning.
 
 ## Build / Test Commands
 
+Use the root `Makefile` targets from the repo root (or run the sub-commands
+directly for a single layer):
+
+| Target | What it does |
+|---|---|
+| `make fmt` | `golangci-lint fmt` in `router/api` + `oxfmt` on the web side |
+| `make lint` | `golangci-lint run` in `router/api` + `pnpm ... lint` for the web |
+| `make test` | `go test ./...` in `router/api` + `tsc -b` typecheck for the web |
+| `make build` | `go build ./...` in `router/api` + `vite build` for the web |
+
 ### `router/web/` (package `@router/web`)
 
 ```bash
@@ -22,6 +32,8 @@ pnpm --filter @router/web format   # oxfmt src/
 
 ```bash
 cd router/api
+golangci-lint run          # lint (config: router/api/.golangci.yml)
+golangci-lint fmt          # format (gofumpt + goimports)
 go build ./...
 go test ./...
 ```

@@ -94,6 +94,7 @@ type AddrInfo struct {
 	AddrInfos []IPAddress `json:"addr_info"`
 }
 
+// IPAddress mirrors one addr_info entry from `ip -j addr`.
 type IPAddress struct {
 	Family    string `json:"family"`
 	Local     string `json:"local"`
@@ -251,7 +252,7 @@ func cpuInfo() *CPUInfo {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var model string
 	var cores int
@@ -281,10 +282,10 @@ func thermalZoneMax() *float64 {
 	if err != nil || len(paths) == 0 {
 		return nil
 	}
-	var max float64
+	var maxTemp float64
 	found := false
 	for _, p := range paths {
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(p) //nolint:gosec // G304: path comes from filepath.Glob on a fixed sysfs pattern, not user input
 		if err != nil {
 			continue
 		}
@@ -293,15 +294,15 @@ func thermalZoneMax() *float64 {
 			continue
 		}
 		c := float64(milliC) / 1000.0
-		if !found || c > max {
-			max = c
+		if !found || c > maxTemp {
+			maxTemp = c
 			found = true
 		}
 	}
 	if !found {
 		return nil
 	}
-	return &max
+	return &maxTemp
 }
 
 // memoryInfo parses /proc/meminfo. Returns nil when the file is absent.
@@ -310,7 +311,7 @@ func memoryInfo() *MemoryInfo {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var total, avail uint64
 	var haveTotal, haveAvail bool
@@ -389,7 +390,7 @@ func interfaces(addrs []AddrInfo) []InterfaceInfo {
 
 // macAddress reads /sys/class/net/<name>/address. Returns "" if unreadable.
 func macAddress(name string) string {
-	data, err := os.ReadFile("/sys/class/net/" + name + "/address")
+	data, err := os.ReadFile("/sys/class/net/" + name + "/address") //nolint:gosec // G304: name is an interface name from the kernel's own ip-json output, not user input
 	if err != nil {
 		return ""
 	}
@@ -401,7 +402,7 @@ func macAddress(name string) string {
 // support reporting speed (e.g. most virtual interfaces) — both cases
 // normalize to nil so the frontend can render "unknown" instead of a bogus value.
 func linkSpeedMbps(name string) *int {
-	data, err := os.ReadFile("/sys/class/net/" + name + "/speed")
+	data, err := os.ReadFile("/sys/class/net/" + name + "/speed") //nolint:gosec // G304: name is an interface name from kernel's ip-json output, not user input
 	if err != nil {
 		return nil
 	}
@@ -432,7 +433,7 @@ func dirExists(path string) bool {
 }
 
 func operState(name string) string {
-	data, err := os.ReadFile("/sys/class/net/" + name + "/operstate")
+	data, err := os.ReadFile("/sys/class/net/" + name + "/operstate") //nolint:gosec // G304: name is an interface name from kernel's ip-json output, not user input
 	if err != nil {
 		return "unknown"
 	}
@@ -509,9 +510,8 @@ func nftRuleset(ctx context.Context) json.RawMessage {
 	return json.RawMessage(out)
 }
 
-// parseDNSMasqLeases parses /var/lib/misc/dnsmasq.leases.
-// Format: <expiry> <mac> <ip> <hostname> <client-id>
-// ParseLeasesFile is exported for testing.
+// ParseLeasesFile parses a dnsmasq leases file (format: expiry mac ip hostname client-id).
+// It is exported so that tests in the status_test package can parse fixture files directly.
 func ParseLeasesFile(path string) []DHCPLease {
 	return parseDNSMasqLeases(path)
 }
@@ -520,11 +520,11 @@ func parseDNSMasqLeases(path string) []DHCPLease {
 	if path == "" {
 		path = "/var/lib/misc/dnsmasq.leases"
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: path is either hardcoded or supplied by ParseLeasesFile (test helper only)
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var leases []DHCPLease
 	scanner := bufio.NewScanner(f)
