@@ -1,0 +1,24 @@
+[Unit]
+Description=Luban config rollback watchdog timer
+Documentation=https://github.com/luban/linux-router
+
+[Timer]
+# Fire shortly after boot to catch the power-loss case: if the router lost
+# power during the 90-second confirm window, the unconfirmed-apply flag file
+# persists on disk and the rollback runs on the next boot.
+OnBootSec=15s
+
+# Fire 90 seconds after the timer is explicitly started by the apply API
+# (/api/apply calls `systemctl start router-rollback.timer`).  90 s is
+# deliberately longer than OpenWrt's default 30 s to accommodate PPPoE
+# redial / DHCP renew latency (field-tested: false rollbacks at 30 s).
+OnActiveSec=90s
+
+# Persistent=yes ensures the boot-time check fires even if the timer was
+# started but the system rebooted before it expired.
+Persistent=yes
+
+Unit=router-rollback.service
+
+[Install]
+WantedBy=timers.target

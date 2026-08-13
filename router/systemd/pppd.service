@@ -1,0 +1,30 @@
+[Unit]
+Description=Luban PPPoE dialer (pppd call wan)
+Documentation=man:pppd(8)
+# Must start after networkd has loaded its config so that when ppp0 appears,
+# networkd immediately matches it with the generated ppp0.network.
+# Skipping this means ppp0 comes up unconfigured and IPv6 PD never triggers.
+After=systemd-networkd.service
+Wants=systemd-networkd.service
+
+# This unit is only enabled when WAN mode is PPPoE; for DHCP/static WAN it
+# must remain disabled (install.sh / apply manages the enabled state).
+ConditionPathExists=/etc/ppp/peers/wan
+
+[Service]
+Type=simple
+# nodetach in the peers file keeps pppd in the foreground for systemd to track.
+ExecStart=/usr/sbin/pppd call wan nodetach
+Restart=always
+RestartSec=5s
+
+# Throttle reconnect attempts on persistent failure (e.g. wrong credentials).
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pppd
+
+[Install]
+WantedBy=multi-user.target

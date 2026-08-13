@@ -1,0 +1,27 @@
+[Unit]
+Description=Luban Router UI (Go backend)
+Documentation=https://github.com/luban/linux-router
+After=network.target systemd-networkd.service caddy.service
+
+[Service]
+Type=exec
+ExecStart=/opt/router/rui
+Restart=on-failure
+RestartSec=5s
+
+# The Go backend binds a Unix socket under /run/router/.
+RuntimeDirectory=router
+RuntimeDirectoryMode=0755
+
+# Both Caddy and the Go backend run as root (OpenWrt precedent; avoids socket
+# permission management between caddy and a non-root rui process).
+User=root
+Group=root
+
+# Logging goes to journald (no separate log files — avoids SD card wear).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=router-ui
+
+[Install]
+WantedBy=multi-user.target

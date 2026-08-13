@@ -1,0 +1,31 @@
+{
+  "id": "machenike-mini-2",
+  "name": "Machenike Mini 2 (i7-13620H)",
+  "match": {
+    "dmi": {
+      "sys_vendor": "Machenike",
+      "product_name": "Machenike DT Computer",
+      "product_family": "Machenike Mini"
+    }
+  },
+  "interfaces": [
+    {
+      "role": "wan",
+      "path": "pci-0000:2c:00.0",
+      "model": "Intel I225-V 2.5GbE",
+      "label": "rear port next to DC jack"
+    },
+    {
+      "role": "lan",
+      "path": "pci-0000:2b:00.0",
+      "model": "Intel I225-V 2.5GbE",
+      "label": "rear port LAN0"
+    },
+    {
+      "role": "wifi",
+      "path": "pci-0000:00:14.3",
+      "model": "Intel AX211 CNVi",
+      "notes": "AP mode: single band only, 2.4GHz stable; 5GHz AP unreliable on Intel"
+    }
+  ]
+}

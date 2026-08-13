@@ -1,0 +1,15 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "plugins": ["react", "react-hooks"],
+  "rules": {
+    "no-console": "warn",
+    "no-debugger": "error",
+    "react/jsx-key": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "max-lines": ["error", { "max": 300, "skipComments": true, "skipBlankLines": true }]
+  }
+}
