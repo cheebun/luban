@@ -436,6 +436,22 @@ the config schema (a bash-templated default vs. the Go struct defaults)
 silently drifting apart; the Go loader is the only thing that ever creates a
 default `config.json`.
 
+**Offline installation**: `scripts/make-offline-bundle.sh` (run on the builder)
+produces a self-contained `luban-offline-<version>-<arch>.tar.gz` containing
+all apt `.deb` files with full dependency closure (via `apt-get install
+--download-only --reinstall`), the SmartDNS GitHub release tarball, and the
+luban payload. `install.sh --offline <bundle-dir>` installs from that bundle
+with no network access: apt repo setup and all GitHub/curl fetches are
+skipped; apt packages are installed from `debs/` in a single transaction so
+dpkg ordering is handled automatically. All post-install steps (config
+generation, resolved masking, systemd setup, idempotency rules) are identical
+to the online path. Builder-must-match-target caveat: the bundle must be built
+on a Debian system with the same release and CPU architecture as the target
+router, because `.deb` files are not cross-version compatible and apt's dep
+solver uses the builder's installed-package state. The Minisforum MS-A2 PVE
+test VM (Debian 13, amd64) is the recommended builder for amd64 bundles. See
+[docs/offline-install.md](docs/offline-install.md) for the full workflow.
+
 ## Future Features
 
 - **Upgrade** — remote upgrade (check + download + stage, reboot at 3:00 AM);

@@ -3,8 +3,15 @@
 # https://github.com/<GITHUB_REPO>/releases
 #
 # Usage:
-#   sudo ./install.sh                   # download latest release from GitHub
-#   sudo ./install.sh --local FILE.tgz  # install from a local tarball
+#   sudo ./install.sh                        # download latest release from GitHub
+#   sudo ./install.sh --local FILE.tgz       # install from a local tarball
+#   sudo ./install.sh --offline BUNDLE_DIR   # offline: use pre-built bundle directory
+#                                            #   (pass the extracted bundle dir, not the tarball)
+#
+# In --offline mode all network operations are skipped. Apt packages are installed
+# from debs/ in the bundle, SmartDNS from smartdns/, and the luban payload from
+# luban/ — no internet connection is required. All post-install configuration,
+# systemd setup, and idempotency rules are identical across modes.
 #
 set -euo pipefail
 
@@ -18,6 +25,7 @@ INSTALL_DIR="/opt/router"
 CADDY_DROPIN_DIR="/etc/systemd/system/caddy.service.d"
 
 LOCAL_TARBALL=""
+OFFLINE_DIR=""   # path to extracted offline bundle directory
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 info() { printf '\n[luban] %s\n' "$*"; }
@@ -27,8 +35,9 @@ die()  { printf '[luban] ERROR %s\n' "$*" >&2; exit 1; }
 
 # ── argument parsing ──────────────────────────────────────────────────────────
 usage() {
-    echo "Usage: $0 [--local <tarball>]"
-    echo "  --local <tarball>  Install from a local tarball (skip GitHub download)"
+    echo "Usage: $0 [--local <tarball>] [--offline <bundle-dir>]"
+    echo "  --local <tarball>      Install from a local tarball (skip GitHub download)"
+    echo "  --offline <bundle-dir> Offline install from a pre-built bundle directory"
     exit 1
 }
 
@@ -39,10 +48,27 @@ while [[ $# -gt 0 ]]; do
             LOCAL_TARBALL="$2"
             shift 2
             ;;
+        --offline)
+            [[ -z "${2:-}" ]] && { echo "ERROR: --offline requires a directory path"; usage; }
+            OFFLINE_DIR="$2"
+            shift 2
+            ;;
         -h|--help) usage ;;
         *) echo "ERROR: Unknown argument: $1"; usage ;;
     esac
 done
+
+# Validate mutual exclusion: --offline and --local are incompatible.
+if [[ -n "$OFFLINE_DIR" && -n "$LOCAL_TARBALL" ]]; then
+    die "--offline and --local cannot be used together"
+fi
+
+if [[ -n "$OFFLINE_DIR" ]]; then
+    [[ -d "$OFFLINE_DIR" ]]             || die "Offline bundle directory not found: $OFFLINE_DIR"
+    [[ -d "$OFFLINE_DIR/debs" ]]        || die "Bundle missing debs/ directory: $OFFLINE_DIR/debs"
+    [[ -d "$OFFLINE_DIR/smartdns" ]]    || die "Bundle missing smartdns/ directory: $OFFLINE_DIR/smartdns"
+    [[ -d "$OFFLINE_DIR/luban" ]]       || die "Bundle missing luban/ directory: $OFFLINE_DIR/luban"
+fi
 
 # ── privilege check ───────────────────────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "This script must be run as root."
@@ -56,6 +82,12 @@ case "$ARCH_RAW" in
 esac
 info "Architecture: $ARCH ($ARCH_RAW)"
 
+if [[ -n "$OFFLINE_DIR" ]]; then
+    info "Mode: offline (bundle: $OFFLINE_DIR)"
+else
+    info "Mode: online"
+fi
+
 # ── temp workspace (cleaned up on exit) ──────────────────────────────────────
 TMP_WORK="$(mktemp -d)"
 trap 'rm -rf "$TMP_WORK"' EXIT
@@ -63,44 +95,57 @@ trap 'rm -rf "$TMP_WORK"' EXIT
 ########################################################################
 # STEP 0 — Ensure DNS resolution works before any curl/apt step
 #
-# On a re-run, /etc/resolv.conf may already be the static file a previous
-# install wrote (nameserver 127.0.0.1), but smartdns may not be up yet —
-# every curl/apt-get/GitHub-API call below would then fail with no
-# resolver. Point resolv.conf at the default-route gateway temporarily;
-# Step 9 restores the static "nameserver 127.0.0.1" once smartdns is
-# verified answering.
+# Skipped in offline mode: no network calls are made during offline install,
+# so DNS resolution is not required.
 ########################################################################
-info "Step 0: Ensuring DNS resolution is available"
+if [[ -z "$OFFLINE_DIR" ]]; then
+    info "Step 0: Ensuring DNS resolution is available"
 
-if getent hosts deb.debian.org >/dev/null 2>&1; then
-    ok "DNS resolution already working"
+    if getent hosts deb.debian.org >/dev/null 2>&1; then
+        ok "DNS resolution already working"
+    else
+        GATEWAY_IP="$(ip route show default 2>/dev/null | awk '/default/ {print $3; exit}')"
+        TEMP_DNS="${GATEWAY_IP:-223.5.5.5}"
+        printf 'nameserver %s\n' "$TEMP_DNS" > /etc/resolv.conf
+        ok "Temporary resolver set to ${TEMP_DNS} for install-time DNS"
+    fi
 else
-    GATEWAY_IP="$(ip route show default 2>/dev/null | awk '/default/ {print $3; exit}')"
-    TEMP_DNS="${GATEWAY_IP:-223.5.5.5}"
-    printf 'nameserver %s\n' "$TEMP_DNS" > /etc/resolv.conf
-    ok "Temporary resolver set to ${TEMP_DNS} for install-time DNS"
+    info "Step 0: Skipped (offline mode — no DNS required)"
 fi
 
 ########################################################################
 # STEP 1 — Third-party apt repo: Caddy official
+#
+# Skipped in offline mode: the bundle's debs/ already contains the Caddy
+# .deb and all of its dependencies. No repo configuration is needed.
 ########################################################################
-info "Step 1: Third-party repos"
+if [[ -z "$OFFLINE_DIR" ]]; then
+    info "Step 1: Third-party repos"
 
-if [[ ! -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
-    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
-        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] \
+    if [[ ! -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
+        curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+            | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] \
 https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" \
-        > /etc/apt/sources.list.d/caddy-stable.list
-    ok "Caddy apt repo added"
+            > /etc/apt/sources.list.d/caddy-stable.list
+        ok "Caddy apt repo added"
+    else
+        ok "Caddy apt repo already configured"
+    fi
 else
-    ok "Caddy apt repo already configured"
+    info "Step 1: Skipped (offline mode — apt repos not needed)"
 fi
 
 ########################################################################
 # STEP 2 — apt install: runtime + base tooling + diagnostics + maintenance
+#
+# Online mode: fetch from apt repositories.
+# Offline mode: install all packages from debs/ in the bundle in a single
+# apt-get transaction. apt handles dpkg ordering automatically when given
+# local .deb paths, avoiding the "dependency not satisfied" errors that
+# plain `dpkg -i` produces on an out-of-order install.
 ########################################################################
-info "Step 2: apt install all dependencies"
+info "Step 2: ${OFFLINE_DIR:+[offline] }apt install all dependencies"
 
 # dnsmasq's postinst autostarts it immediately after install, with DNS
 # listening on :53 by default. It would race smartdns for that port before
@@ -168,47 +213,78 @@ else
 fi
 ok "dnsmasq CONFIG_DIR set to exclude .bak backups (pre-install)"
 
-apt-get update -qq
+if [[ -z "$OFFLINE_DIR" ]]; then
+    # Online: fetch from apt repositories.
+    apt-get update -qq
 
-# Runtime — Go backend calls these at runtime
-RUNTIME_PKGS=(
-    iproute2 udev dnsmasq smartdns wpasupplicant iw nftables caddy
-    systemd-timesyncd ppp
-)
+    RUNTIME_PKGS=(
+        iproute2 udev dnsmasq smartdns wpasupplicant iw nftables caddy
+        systemd-timesyncd ppp
+    )
+    BASE_PKGS=(
+        curl tar wget unzip neovim
+    )
+    DIAG_PKGS=(
+        mtr tcpdump nmap iperf3 ethtool httping inetutils-traceroute telnet
+        bind9-dnsutils conntrack socat netcat-openbsd net-tools ebtables ipset
+        pppoe
+    )
+    MAINT_PKGS=(
+        htop iotop tmux rsync jq lsof psmisc tree git
+        openssl bash-completion wireguard
+        libarchive-tools xz-utils zip axel
+    )
 
-# Base tooling — SSH maintenance, debugging, deployment
-BASE_PKGS=(
-    curl tar wget unzip neovim
-)
+    apt-get install -y --no-install-recommends \
+        "${RUNTIME_PKGS[@]}" \
+        "${BASE_PKGS[@]}" \
+        "${DIAG_PKGS[@]}" \
+        "${MAINT_PKGS[@]}"
+else
+    # Offline: install every .deb in the bundle's debs/ directory.
+    # apt-get handles dpkg ordering for local .deb files when given explicit
+    # paths — a single transaction so pre/post-install hooks fire in the
+    # correct dependency order, unlike plain `dpkg -i` which errors on
+    # unsatisfied deps if packages arrive out of order.
+    #
+    # Fallback note: if apt-get refuses local .deb installs (very old apt),
+    # use: dpkg -i "$OFFLINE_DIR"/debs/*.deb && apt-get install -f -y
+    DEB_PATHS=("$OFFLINE_DIR"/debs/*.deb)
+    [[ ${#DEB_PATHS[@]} -gt 0 && -f "${DEB_PATHS[0]}" ]] \
+        || die "No .deb files found in bundle: $OFFLINE_DIR/debs/"
 
-# Network diagnostics
-DIAG_PKGS=(
-    mtr tcpdump nmap iperf3 ethtool httping inetutils-traceroute telnet
-    bind9-dnsutils conntrack socat netcat-openbsd net-tools ebtables ipset
-    pppoe
-)
-
-# System maintenance
-MAINT_PKGS=(
-    htop iotop tmux rsync jq lsof psmisc tree git
-    openssl bash-completion wireguard
-    libarchive-tools xz-utils zip axel
-)
-
-apt-get install -y --no-install-recommends \
-    "${RUNTIME_PKGS[@]}" \
-    "${BASE_PKGS[@]}" \
-    "${DIAG_PKGS[@]}" \
-    "${MAINT_PKGS[@]}"
+    apt-get install -y --no-install-recommends "${DEB_PATHS[@]}"
+fi
 
 ok "All apt packages installed"
 
 ########################################################################
 # STEP 3 — SmartDNS: GitHub release binary → /usr/local/bin/smartdns
-# SmartDNS is listed under third-party sources (no apt repo); the GitHub
-# release binary is installed on top of whatever apt provides.
+#
+# Online mode: fetch tarball from GitHub Releases API.
+# Offline mode: use the tarball pre-downloaded into the bundle's smartdns/.
+#
+# In both modes, the actual binary extraction and install are identical —
+# handled by install_smartdns_binary() below.
 ########################################################################
-info "Step 3: SmartDNS GitHub release binary"
+info "Step 3: SmartDNS binary"
+
+# Shared function: extract the smartdns binary from a local tarball and
+# install it to /usr/local/bin/smartdns.
+install_smartdns_binary() {
+    local tarball="$1"
+    local extract_dir="$TMP_WORK/sd-extract"
+    mkdir -p "$extract_dir"
+    tar -xzf "$tarball" -C "$extract_dir"
+    local SD_BIN
+    SD_BIN="$(find "$extract_dir" -name smartdns -type f | head -1)"
+    if [[ -n "$SD_BIN" ]]; then
+        install -m 755 "$SD_BIN" /usr/local/bin/smartdns
+        ok "SmartDNS binary installed to /usr/local/bin/smartdns"
+    else
+        warn "smartdns binary not found in tarball; apt-installed version will be used"
+    fi
+}
 
 case "$ARCH" in
     amd64) SD_ARCH="x86_64"  ;;
@@ -216,33 +292,32 @@ case "$ARCH" in
     *)     die "Unexpected ARCH: $ARCH" ;;
 esac
 
-# Asset naming has changed upstream before (e.g. "-linux-gnu.tar.gz" ->
-# "-linux-all.tar.gz"); do not hardcode a filename pattern. Query the
-# release API and pick whichever asset matches "${SD_ARCH}-linux-all.tar.gz".
-SD_RELEASE_JSON="$(curl -fsSL "https://api.github.com/repos/${SMARTDNS_REPO}/releases/latest")"
+if [[ -z "$OFFLINE_DIR" ]]; then
+    # Online: query GitHub Releases API for the latest tarball URL.
+    SD_RELEASE_JSON="$(curl -fsSL "https://api.github.com/repos/${SMARTDNS_REPO}/releases/latest")"
 
-SD_TAG="$(printf '%s' "$SD_RELEASE_JSON" | jq -r '.tag_name')"
-[[ -n "$SD_TAG" && "$SD_TAG" != "null" ]] || die "Could not determine SmartDNS latest release tag"
-info "  SmartDNS latest tag: ${SD_TAG}"
+    SD_TAG="$(printf '%s' "$SD_RELEASE_JSON" | jq -r '.tag_name')"
+    [[ -n "$SD_TAG" && "$SD_TAG" != "null" ]] || die "Could not determine SmartDNS latest release tag"
+    info "  SmartDNS latest tag: ${SD_TAG}"
 
-SD_ASSET_PATTERN="${SD_ARCH}-linux-all.tar.gz"
-SD_URL="$(printf '%s' "$SD_RELEASE_JSON" \
-    | jq -r --arg pat "$SD_ASSET_PATTERN" \
-        '.assets[]? | select(.name | endswith($pat)) | .browser_download_url' \
-    | head -1)"
-[[ -n "$SD_URL" ]] || die "No SmartDNS release asset matching *${SD_ASSET_PATTERN} found for tag ${SD_TAG}"
-SD_PKG="$(basename "$SD_URL")"
-info "  SmartDNS asset: ${SD_PKG}"
+    SD_ASSET_PATTERN="${SD_ARCH}-linux-all.tar.gz"
+    SD_URL="$(printf '%s' "$SD_RELEASE_JSON" \
+        | jq -r --arg pat "$SD_ASSET_PATTERN" \
+            '.assets[]? | select(.name | endswith($pat)) | .browser_download_url' \
+        | head -1)"
+    [[ -n "$SD_URL" ]] || die "No SmartDNS release asset matching *${SD_ASSET_PATTERN} found for tag ${SD_TAG}"
+    SD_PKG="$(basename "$SD_URL")"
+    info "  SmartDNS asset: ${SD_PKG}"
 
-curl -fsSL -L -o "${TMP_WORK}/${SD_PKG}" "$SD_URL"
-tar -xzf "${TMP_WORK}/${SD_PKG}" -C "${TMP_WORK}"
-
-SD_BIN="$(find "${TMP_WORK}" -name smartdns -type f | head -1)"
-if [[ -n "$SD_BIN" ]]; then
-    install -m 755 "$SD_BIN" /usr/local/bin/smartdns
-    ok "SmartDNS binary installed to /usr/local/bin/smartdns"
+    curl -fsSL -L -o "${TMP_WORK}/${SD_PKG}" "$SD_URL"
+    install_smartdns_binary "${TMP_WORK}/${SD_PKG}"
 else
-    warn "smartdns binary not found in GitHub tarball; apt-installed version will be used"
+    # Offline: use the pre-downloaded tarball from the bundle.
+    SD_TARBALL="$(find "$OFFLINE_DIR/smartdns" -name "*${SD_ARCH}*.tar.gz" | head -1)"
+    [[ -n "$SD_TARBALL" ]] \
+        || die "No SmartDNS tarball matching *${SD_ARCH}*.tar.gz in bundle: $OFFLINE_DIR/smartdns/"
+    info "  SmartDNS tarball (bundle): $(basename "$SD_TARBALL")"
+    install_smartdns_binary "$SD_TARBALL"
 fi
 
 # Create a systemd unit only if the release tarball did not ship one.
@@ -303,15 +378,25 @@ else
 fi
 
 ########################################################################
-# STEP 5 — Obtain release tarball (GitHub download or --local)
+# STEP 5 — Obtain release tarball (GitHub download, --local, or --offline)
 ########################################################################
-info "Step 5: Obtaining luban release tarball"
+info "Step 5: Obtaining luban release"
 
 TARBALL=""
-if [[ -n "$LOCAL_TARBALL" ]]; then
+RELEASE_DIR="${TMP_WORK}/release"
+mkdir -p "$RELEASE_DIR"
+
+if [[ -n "$OFFLINE_DIR" ]]; then
+    # Offline: the bundle's luban/ directory IS the release directory.
+    # Copy (not move — the bundle dir may be read-only) to RELEASE_DIR.
+    cp -r "$OFFLINE_DIR/luban/." "$RELEASE_DIR/"
+    ok "Luban payload loaded from bundle: $OFFLINE_DIR/luban/"
+elif [[ -n "$LOCAL_TARBALL" ]]; then
     [[ -f "$LOCAL_TARBALL" ]] || die "Local tarball not found: $LOCAL_TARBALL"
     TARBALL="$LOCAL_TARBALL"
     ok "Using local tarball: $TARBALL"
+    tar -xzf "$TARBALL" -C "$RELEASE_DIR" --strip-components=1
+    ok "Release tarball extracted"
 else
     LUBAN_TAG="$(curl -fsSL \
         "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
@@ -323,12 +408,9 @@ else
     TARBALL="${TMP_WORK}/luban.tar.gz"
     curl -fsSL -L -o "$TARBALL" "$LUBAN_URL"
     ok "Downloaded $LUBAN_PKG"
+    tar -xzf "$TARBALL" -C "$RELEASE_DIR" --strip-components=1
+    ok "Release tarball extracted"
 fi
-
-RELEASE_DIR="${TMP_WORK}/release"
-mkdir -p "$RELEASE_DIR"
-tar -xzf "$TARBALL" -C "$RELEASE_DIR" --strip-components=1
-ok "Release tarball extracted"
 
 ########################################################################
 # STEP 6 — Deploy to /opt/router/
@@ -342,7 +424,7 @@ info "Step 6: Deploy to $INSTALL_DIR"
 
 mkdir -p "$INSTALL_DIR"
 
-[[ -f "${RELEASE_DIR}/rui" ]] || die "Release tarball missing: rui"
+[[ -f "${RELEASE_DIR}/rui" ]] || die "Release missing: rui"
 install -m 755 "${RELEASE_DIR}/rui" "${INSTALL_DIR}/rui"
 ok "rui binary deployed"
 
@@ -380,12 +462,12 @@ fi
 info "Step 7: Installing systemd units"
 
 SYSTEMD_SRC="${RELEASE_DIR}/systemd"
-[[ -d "$SYSTEMD_SRC" ]] || die "Release tarball missing systemd/ directory"
+[[ -d "$SYSTEMD_SRC" ]] || die "Release missing systemd/ directory"
 
 install_unit() {
     local name="$1"
     local src="${SYSTEMD_SRC}/${name}"
-    [[ -f "$src" ]] || die "Unit file missing from tarball: systemd/${name}"
+    [[ -f "$src" ]] || die "Unit file missing from release: systemd/${name}"
     install -m 644 "$src" "/etc/systemd/system/${name}"
     ok "Installed /etc/systemd/system/${name}"
 }
@@ -397,7 +479,7 @@ install_unit "pppd.service"
 
 # router-rollback.service's ExecStart points at /opt/router/systemd/router-rollback.sh
 # (not /etc/systemd/system/) — deploy the script itself alongside the units.
-[[ -f "${SYSTEMD_SRC}/router-rollback.sh" ]] || die "Release tarball missing: systemd/router-rollback.sh"
+[[ -f "${SYSTEMD_SRC}/router-rollback.sh" ]] || die "Release missing: systemd/router-rollback.sh"
 mkdir -p "${INSTALL_DIR}/systemd"
 install -m 755 "${SYSTEMD_SRC}/router-rollback.sh" "${INSTALL_DIR}/systemd/router-rollback.sh"
 ok "Installed ${INSTALL_DIR}/systemd/router-rollback.sh"
@@ -520,18 +602,20 @@ systemctl mask systemd-resolved
 ok "systemd-resolved stopped and masked"
 
 # resolv.conf: remove the symlink managed-resolved created, then restore the
-# static resolver. Step 0 may have pointed resolv.conf at the gateway
-# temporarily so curl/apt-get/GitHub-API calls above had working DNS; wait
-# briefly for smartdns (restarted back in Step 3) to actually answer on
-# 127.0.0.1 before switching back, so this exit path never leaves the
-# system without a working resolver.
+# static resolver. In offline mode, Step 0 was skipped, so resolv.conf may
+# still be the system default — write our static entry unconditionally so
+# the final state is always correct regardless of install mode.
 if [[ -L /etc/resolv.conf ]]; then
     rm -f /etc/resolv.conf
 fi
-for _ in 1 2 3 4 5; do
-    dig +time=2 +tries=1 @127.0.0.1 deb.debian.org >/dev/null 2>&1 && break
-    sleep 1
-done
+if [[ -z "$OFFLINE_DIR" ]]; then
+    # Online mode: wait for smartdns to answer on 127.0.0.1 before switching
+    # (Step 0 may have pointed resolv.conf at the gateway temporarily).
+    for _ in 1 2 3 4 5; do
+        dig +time=2 +tries=1 @127.0.0.1 deb.debian.org >/dev/null 2>&1 && break
+        sleep 1
+    done
+fi
 if [[ ! -f /etc/resolv.conf ]] || ! grep -q "^nameserver 127.0.0.1" /etc/resolv.conf; then
     printf 'nameserver 127.0.0.1\n' > /etc/resolv.conf
 fi
@@ -632,6 +716,9 @@ _svc() { systemctl is-active "$1" 2>/dev/null || echo "inactive"; }
 printf '\n'
 printf '══════════════════════════════════════════════════════\n'
 printf '  luban Router — Installation Complete\n'
+if [[ -n "$OFFLINE_DIR" ]]; then
+printf '  (offline mode)\n'
+fi
 printf '══════════════════════════════════════════════════════\n'
 printf '\n'
 printf '  First-login URL : http://192.168.20.1\n'
