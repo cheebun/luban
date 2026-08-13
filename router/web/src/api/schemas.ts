@@ -65,6 +65,7 @@ export const DnsConfigSchema = z.object({
 
 export const SystemConfigSchema = z.object({
   hostname: z.string(),
+  configured: z.boolean().default(true),
 });
 
 export const RouterConfigSchema = z.object({

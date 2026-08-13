@@ -228,6 +228,36 @@ export const changePasswordFormSchema = z
 
 export type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
 
+// ---- Wizard management step --------------------------------------------
+
+export const wizardManagementFormSchema = z
+  .object({
+    lanIp: z.string(),
+    lanMask: z.string(),
+    password: z.string(),
+    confirmPassword: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.lanIp) ctx.addIssue({ code: "custom", path: ["lanIp"], message: "请输入 LAN IP 地址" });
+    else if (!isValidIPv4(v.lanIp))
+      ctx.addIssue({ code: "custom", path: ["lanIp"], message: "IP 地址格式无效" });
+
+    if (!v.lanMask) ctx.addIssue({ code: "custom", path: ["lanMask"], message: "请输入子网掩码" });
+    else if (maskToPrefix(v.lanMask) === null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["lanMask"],
+        message: "子网掩码无效（必须是连续掩码，如 255.255.255.0）",
+      });
+
+    if (v.password.length < 8)
+      ctx.addIssue({ code: "custom", path: ["password"], message: "密码至少需要 8 位" });
+    if (v.password !== v.confirmPassword)
+      ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "两次密码不一致" });
+  });
+
+export type WizardManagementFormValues = z.infer<typeof wizardManagementFormSchema>;
+
 // TanStack Form field errors are `unknown[]` — Standard Schema (zod) issue
 // objects carry `.message`, while plain function validators (used for
 // MtuMssForm, whose schema depends on external wan-mode state) push bare

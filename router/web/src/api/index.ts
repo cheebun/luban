@@ -27,6 +27,19 @@ import type {
   HealthResponse,
   ServiceRestartRequest,
 } from "./types.ts";
+import {
+  WizardStateSchema,
+  WizardProbeResponseSchema,
+  WizardCompleteResponseSchema,
+} from "./wizardSchemas.ts";
+import type {
+  WizardState,
+  WizardProbeResponse,
+  WizardCompleteRequest,
+  WizardCompleteResponse,
+} from "./wizardSchemas.ts";
+
+export type { WizardState, WizardInterface, WizardBoard, WizardCompleteResponse } from "./wizardSchemas.ts";
 
 export type * from "./types.ts";
 
@@ -84,4 +97,16 @@ export function rollbackApply(): Promise<{ ok: boolean }> {
 export async function getLogs(): Promise<string[]> {
   const raw = await get("/api/log", LogResponseSchema);
   return raw.log ? raw.log.split("\n").filter((line) => line.length > 0) : [];
+}
+
+export function getWizardState(): Promise<WizardState> {
+  return get("/api/wizard/state", WizardStateSchema);
+}
+
+export function probeWizard(): Promise<WizardProbeResponse> {
+  return post("/api/wizard/probe", WizardProbeResponseSchema);
+}
+
+export function completeWizard(req: WizardCompleteRequest): Promise<WizardCompleteResponse> {
+  return post("/api/wizard/complete", WizardCompleteResponseSchema, req);
 }

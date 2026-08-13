@@ -1,7 +1,7 @@
 import type { RouterConfig } from "../../api/index.ts";
 
 export const DEFAULT_CONFIG: RouterConfig = {
-  system: { hostname: "router" },
+  system: { hostname: "router", configured: true },
   wan: {
     mode: "dhcp",
     interface: "eth0",

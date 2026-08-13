@@ -23,3 +23,5 @@ export type { UnitInputProps } from "./UnitInput.tsx";
 
 export { PasswordInput } from "./PasswordInput.tsx";
 export type { PasswordInputProps } from "./PasswordInput.tsx";
+
+export { Stepper } from "./Stepper.tsx";
