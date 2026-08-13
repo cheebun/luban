@@ -20,7 +20,7 @@ net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.ppp0.rp_filter = 2
 {{- end }}
 
-{{- if not .IsBridge }}
+{{- if and (not .IsBridge) (not .IsUnconfigured) }}
 # Explicit accept_ra=2 on the WAN-facing interface (forwarding=1 would default
 # it to 0; networkd also sets this, but declared here for clarity).
 {{- if .IsPPPoE }}
@@ -33,11 +33,8 @@ net.ipv6.conf.{{ .WanIface }}.accept_ra = 2
 net.ipv4.conf.{{ .WanIface }}.accept_redirects = 0
 net.ipv4.conf.{{ .WanIface }}.send_redirects = 0
 {{- else }}
-# Bridge WAN mode: the WAN port is now a plain br0 bridge port, not
-# a routed interface — the accept_ra/redirects tuning above applies to a
-# routed WAN link and doesn't make sense here. br0 itself gets its address
-# via DHCP (see networkd-br0.network.tpl) and follows normal LAN interface
-# defaults.
+# Bridge / unconfigured mode: no separate routed WAN interface — the
+# accept_ra/redirects tuning above does not apply here.
 {{- end }}
 
 # Fair-queue packet scheduler + BBR congestion control for better throughput

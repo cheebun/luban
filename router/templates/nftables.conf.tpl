@@ -3,15 +3,17 @@
 
 flush ruleset
 
-{{- if .IsBridge }}
-# ── Bridge WAN mode ──────────────────────────────────────────────────────────
-# The WAN port is bridged into br0; this device is a switch/AP behind an
-# upstream router, which owns NAT/masquerade. Only self-protection rules
-# apply here — no masquerade, no MSS clamp, no modem SNAT (there is no
-# separate WAN interface to clamp or SNAT for; it's part of br0 now). The
-# forward chain is left ACCEPT: bridged L2 traffic doesn't go through an L3
-# routing decision, and a DROP-by-default forward policy would only break
-# bridging if br_netfilter happens to be loaded.
+{{- if or .IsUnconfigured .IsBridge }}
+# ── Unconfigured / Bridge WAN mode ───────────────────────────────────────────
+# Unconfigured mode: no WAN port is assigned yet; all ethernet ports are
+# enslaved to br0 so the setup wizard is reachable from any port. Only
+# LAN-side self-protection rules apply — no masquerade, no MSS clamp, no
+# modem SNAT. The forward chain is left ACCEPT (there is no separate WAN
+# interface to restrict against).
+#
+# Bridge WAN mode: the WAN port is bridged into br0; this device is a switch/AP
+# behind an upstream router, which owns NAT/masquerade. Same ruleset as
+# unconfigured — only self-protection, forward ACCEPT.
 define LAN = br0
 
 table inet filter {

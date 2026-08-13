@@ -9,6 +9,7 @@ import (
 	"luban/internal/apply"
 	"luban/internal/auth"
 	"luban/internal/config"
+	"luban/internal/detect"
 	"luban/internal/health"
 	"luban/internal/status"
 	"net"
@@ -20,14 +21,33 @@ import (
 
 // Server holds all dependencies shared across handlers.
 type Server struct {
-	store    *config.Store
-	sessions *auth.Manager
-	baseDir  string
+	store      *config.Store
+	sessions   *auth.Manager
+	baseDir    string
+	prober     detect.Prober
+	probeCache wizardProbeCache
+}
+
+// Option is a functional option for New.
+type Option func(*Server) //nolint:revive // Opt would be terse but Option is clearer here.
+
+// WithProber replaces the DHCP prober (used in tests to inject a fake).
+func WithProber(p detect.Prober) Option {
+	return func(s *Server) { s.prober = p }
 }
 
 // New constructs a Server. Call ListenAndServe to start it.
-func New(store *config.Store, sessions *auth.Manager, baseDir string) *Server {
-	return &Server{store: store, sessions: sessions, baseDir: baseDir}
+func New(store *config.Store, sessions *auth.Manager, baseDir string, opts ...Option) *Server {
+	s := &Server{
+		store:    store,
+		sessions: sessions,
+		baseDir:  baseDir,
+		prober:   detect.NewRealProber(),
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // ListenAndServe binds the unix socket and serves HTTP until ctx is cancelled.
@@ -139,6 +159,24 @@ func (s *Server) routeGuarded(w http.ResponseWriter, r *http.Request) {
 	case "/api/service/restart":
 		if r.Method == http.MethodPost {
 			s.handleServiceRestart(w, r)
+		} else {
+			methodNotAllowed(w)
+		}
+	case "/api/wizard/state":
+		if r.Method == http.MethodGet {
+			s.handleWizardState(w, r)
+		} else {
+			methodNotAllowed(w)
+		}
+	case "/api/wizard/probe":
+		if r.Method == http.MethodPost {
+			s.handleWizardProbe(w, r)
+		} else {
+			methodNotAllowed(w)
+		}
+	case "/api/wizard/complete":
+		if r.Method == http.MethodPost {
+			s.handleWizardComplete(w, r)
 		} else {
 			methodNotAllowed(w)
 		}
@@ -264,7 +302,19 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 	cfg := s.store.Get()
-	data, err := apply.BuildTemplateData(cfg)
+	var (
+		data apply.TemplateData
+		err  error
+	)
+	if !cfg.System.Configured {
+		// First-boot unconfigured mode: detect ethernet ports and enslave them
+		// all to br0 so the wizard UI is reachable from any port.
+		ifaces, _ := detect.EnumerateInterfaces()
+		etherNames := ethernetNames(ifaces)
+		data, err = apply.BuildUnconfiguredTemplateData(cfg, etherNames)
+	} else {
+		data, err = apply.BuildTemplateData(cfg)
+	}
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "build template data: "+err.Error())
 		return
@@ -276,6 +326,17 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("apply triggered")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// ethernetNames returns the interface names of all non-wifi interfaces.
+func ethernetNames(ifaces []detect.Interface) []string {
+	names := make([]string, 0, len(ifaces))
+	for _, iface := range ifaces {
+		if !iface.Wifi {
+			names = append(names, iface.Name)
+		}
+	}
+	return names
 }
 
 func (s *Server) handleConfirm(w http.ResponseWriter, r *http.Request) {

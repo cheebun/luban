@@ -28,6 +28,12 @@ type Config struct {
 type System struct {
 	Hostname string `json:"hostname"`
 	Admin    Admin  `json:"admin"`
+	// Configured is false on a freshly-installed system; the setup wizard sets
+	// it to true when the user finishes the first-boot configuration flow.
+	// Backward compat: if absent in an existing config.json but wan.interface is
+	// set, normalize() treats the system as already configured and persists the
+	// field so future loads are explicit.
+	Configured bool `json:"configured"`
 }
 
 // Admin holds the admin account credentials.
@@ -123,9 +129,16 @@ func NewStore(baseDir string) (*Store, error) {
 	if err := json.Unmarshal(data, &s.cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
-	normalize(&s.cfg)
+	changed := normalize(&s.cfg)
 	if err := Validate(&s.cfg); err != nil {
 		return nil, fmt.Errorf("invalid config on disk: %w", err)
+	}
+	if changed {
+		// Persist any backward-compat defaults so future loads are explicit
+		// (e.g. the configured field on pre-wizard config files).
+		if writeErr := s.save(); writeErr != nil {
+			return nil, fmt.Errorf("persist normalized config: %w", writeErr)
+		}
 	}
 	return s, nil
 }
@@ -133,10 +146,22 @@ func NewStore(baseDir string) (*Store, error) {
 // normalize fills in defaults for fields added after config.json files were
 // already written on disk, so an old file doesn't fail Validate just because
 // a newer field is missing/empty. Called on load, before Validate.
-func normalize(c *Config) {
+// Returns true if any field was changed (caller should persist the result).
+func normalize(c *Config) (changed bool) {
 	if c.LAN.DHCP.DNSMode == "" {
 		c.LAN.DHCP.DNSMode = "auto"
+		changed = true
 	}
+	// configured backward compat: files written before the wizard feature existed
+	// lack the "configured" field (unmarshal leaves it false). If wan.interface is
+	// non-empty the system was already configured; treat as true and persist so
+	// future loads are explicit. A truly unconfigured system always has an empty
+	// wan.interface in the default config seeded by NewStore.
+	if !c.System.Configured && c.WAN.Interface != "" {
+		c.System.Configured = true
+		changed = true
+	}
+	return changed
 }
 
 // Get returns a deep copy of the current config.

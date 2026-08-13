@@ -334,6 +334,55 @@ func TestParseDNSUpstream(t *testing.T) {
 	}
 }
 
+// TestNewStore_ConfiguredBackwardCompat verifies that loading a config.json
+// written before the "configured" field existed (configured absent, defaults
+// to false) but with a non-empty wan.interface is normalized to configured=true
+// and the change is persisted so subsequent loads don't re-normalize.
+func TestNewStore_ConfiguredBackwardCompat(t *testing.T) {
+	dir := t.TempDir()
+	// Simulate a pre-wizard config: no "configured" field, but wan.interface set.
+	raw := `{
+		"system":{"hostname":"router","admin":{"password_hash":"$2a$10$abc","must_change":false}},
+		"wan":{"mode":"dhcp","interface":"eth0","static":{"dns":[]},"pppoe":{},"modem_ip":"auto"},
+		"lan":{"interfaces":["eth1"],"address":"192.168.1.1/24","dhcp":{"enabled":true,"start":"192.168.1.100","end":"192.168.1.200","lease":"12h"}},
+		"ipv6":{"enabled":false,"lan_prefix_len":"auto"},
+		"dns":{"upstreams":[]}
+	}`
+	if err := os.WriteFile(dir+"/config.json", []byte(raw), 0o640); err != nil { //nolint:gosec // G306: test fixture
+		t.Fatal(err)
+	}
+
+	s, err := config.NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	if !s.Get().System.Configured {
+		t.Error("Configured should be true after normalization (wan.interface is set)")
+	}
+
+	// Reload to verify the normalization was persisted.
+	s2, err := config.NewStore(dir)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if !s2.Get().System.Configured {
+		t.Error("Configured should remain true after reload (persisted by normalize)")
+	}
+}
+
+// TestNewStore_ConfiguredFalseOnFreshSeed verifies that a freshly-seeded config
+// (no config.json on disk) has configured=false.
+func TestNewStore_ConfiguredFalseOnFreshSeed(t *testing.T) {
+	dir := t.TempDir()
+	s, err := config.NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	if s.Get().System.Configured {
+		t.Error("fresh seed should have Configured=false")
+	}
+}
+
 func TestSet_PersistsAndReloads(t *testing.T) {
 	dir := t.TempDir()
 	s, err := config.NewStore(dir)

@@ -319,6 +319,77 @@ func TestRenderAll_RealTemplates_Bridge(t *testing.T) {
 	}
 }
 
+// TestRenderAll_RealTemplates_Unconfigured renders first-boot unconfigured mode
+// and verifies: nftables uses forward-accept (no WAN surface), dnsmasq emits
+// a DHCP range, wan.network has no [Match] section, and sysctl skips the
+// WAN-specific accept_ra/redirects tuning.
+func TestRenderAll_RealTemplates_Unconfigured(t *testing.T) {
+	baseDir := filepath.Dir(realTemplatesDir(t))
+
+	fakePorts := []string{"eth0", "eth1"}
+	data, err := apply.BuildUnconfiguredTemplateData(config.Config{
+		DNS: config.DNS{Upstreams: []string{"119.29.29.29"}},
+	}, fakePorts)
+	if err != nil {
+		t.Fatalf("BuildUnconfiguredTemplateData: %v", err)
+	}
+	if !data.IsUnconfigured {
+		t.Fatal("IsUnconfigured should be true")
+	}
+
+	tmpDir, entries, err := apply.RenderAll(baseDir, data)
+	if err != nil {
+		t.Fatalf("RenderAll: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	if len(entries) == 0 {
+		t.Fatal("expected at least one rendered entry")
+	}
+
+	// Per-port entries: one per fake port.
+	portCount := 0
+	for _, e := range entries {
+		if e.Port != "" {
+			portCount++
+		}
+	}
+	if portCount != len(fakePorts) {
+		t.Errorf("got %d per-port entries, want %d", portCount, len(fakePorts))
+	}
+
+	// nftables: forward chain must be policy accept (no WAN restrictions).
+	nft := readRendered(t, tmpDir, "/etc/nftables.conf")
+	if !strings.Contains(nft, "policy accept;") {
+		t.Errorf("nftables.conf forward chain should be policy accept in unconfigured mode; got:\n%s", nft)
+	}
+	if strings.Contains(nft, "table ip nat") {
+		t.Errorf("nftables.conf should not define a nat table in unconfigured mode; got:\n%s", nft)
+	}
+
+	// dnsmasq: DHCP must be enabled with a valid range.
+	dnsmasqConf := readRendered(t, tmpDir, "/etc/dnsmasq.d/router.conf")
+	if !strings.Contains(dnsmasqConf, "dhcp-range=") {
+		t.Errorf("dnsmasq.conf should emit dhcp-range in unconfigured mode; got:\n%s", dnsmasqConf)
+	}
+
+	// wan.network: must not have a [Match] or [Network] section (placeholder only).
+	wanNet := readRendered(t, tmpDir, "/etc/systemd/network/10-wan.network")
+	if strings.Contains(wanNet, "[Match]") {
+		t.Errorf("10-wan.network should not have [Match] in unconfigured mode; got:\n%s", wanNet)
+	}
+
+	// sysctl: must skip the WAN-specific accept_ra/redirects tuning.
+	sysctlConf := readRendered(t, tmpDir, "/etc/sysctl.d/99-router.conf")
+	if strings.Contains(sysctlConf, "accept_redirects") || strings.Contains(sysctlConf, ".accept_ra = 2") {
+		t.Errorf("99-router.conf should skip WAN-specific tuning in unconfigured mode; got:\n%s", sysctlConf)
+	}
+	// ip_forward must still be present.
+	if !strings.Contains(sysctlConf, "net.ipv4.ip_forward = 1") {
+		t.Errorf("99-router.conf must still set ip_forward=1 in unconfigured mode; got:\n%s", sysctlConf)
+	}
+}
+
 // TestRenderAll_RealTemplates_BridgeRoundTrip renders bridge then routed
 // (dhcp) then bridge again, checking each direction produces the mode's
 // expected output — i.e. switching away from bridge and back doesn't leave

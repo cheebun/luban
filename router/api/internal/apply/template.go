@@ -68,6 +68,11 @@ type TemplateData struct {
 	// upstream router owns DHCP/NAT, this device only takes a management
 	// address on br0 via DHCP client.
 	IsBridge bool
+	// IsUnconfigured is true during first-boot wizard mode: no WAN port is
+	// assigned yet, all detected ethernet ports are enslaved to br0, and the
+	// nftables/sysctl templates omit WAN-specific rules. Set by
+	// BuildUnconfiguredTemplateData; never set by BuildTemplateData.
+	IsUnconfigured bool
 }
 
 // BuildTemplateData constructs the render context from the stored config.
@@ -287,6 +292,70 @@ func RenderAll(baseDir string, data TemplateData) (tmpDir string, entries []Rend
 	}
 
 	return tmpDir, entries, nil
+}
+
+// BuildUnconfiguredTemplateData constructs TemplateData for first-boot
+// unconfigured mode. All detectedPorts are enslaved to br0 so the wizard
+// is reachable from any ethernet port. The WAN interface is left empty;
+// templates check IsUnconfigured to skip WAN-specific output.
+//
+// detectedPorts should be the ethernet-only interface names returned by
+// detect.EnumerateInterfaces (Wifi=false). If the slice is empty, a single
+// placeholder "eth0" is used so the render pipeline does not error on an
+// empty LAN interface list.
+func BuildUnconfiguredTemplateData(cfg config.Config, detectedPorts []string) (TemplateData, error) {
+	if len(detectedPorts) == 0 {
+		detectedPorts = []string{"eth0"}
+	}
+
+	const lanAddr = "192.168.20.1/24"
+	lanIP, lanNet, err := net.ParseCIDR(lanAddr)
+	if err != nil {
+		return TemplateData{}, fmt.Errorf("parse default lan address: %w", err)
+	}
+	lanPrefixLen, _ := lanNet.Mask.Size()
+
+	// Derive DNS upstream lines from the stored config (carry over upstreams if
+	// already set; fall back to the hard-coded defaults for a truly blank config).
+	upstreams := cfg.DNS.Upstreams
+	if len(upstreams) == 0 {
+		upstreams = []string{"119.29.29.29", "223.5.5.5"}
+	}
+	dnsLines := make([]string, 0, len(upstreams))
+	for _, u := range upstreams {
+		line, parseErr := config.ParseDNSUpstream(u)
+		if parseErr != nil {
+			continue
+		}
+		dnsLines = append(dnsLines, line)
+	}
+
+	ucfg := cfg
+	ucfg.LAN.Interfaces = detectedPorts
+	ucfg.LAN.Address = lanAddr
+	ucfg.LAN.DHCP = config.DHCP{
+		Enabled: true,
+		Start:   "192.168.20.100",
+		End:     "192.168.20.254",
+		Lease:   "12h",
+		DNSMode: "auto",
+	}
+
+	return TemplateData{
+		Config:         ucfg,
+		IsUnconfigured: true,
+		// No WAN interface in unconfigured mode.
+		WanIface:     "",
+		LanIface:     "br0",
+		LanIP:        lanIP.String(),
+		LanCIDR:      lanAddr,
+		LanPrefixLen: lanPrefixLen,
+		// Default 1500; pppoe not in use, no mtu override.
+		MTU:              1500,
+		MSSClampLine:     "rt mtu",
+		DhcpDNSServers:   []string{lanIP.String()},
+		DNSUpstreamLines: dnsLines,
+	}, nil
 }
 
 // RenderOne renders a single named template to a string (used in tests).
