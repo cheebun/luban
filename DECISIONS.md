@@ -62,6 +62,8 @@ self-contained prod bundle excludes them. Bumped `react-query` to 5.105.1 and
 validation is debounced 300ms via TanStack Form's native
 `onChangeAsyncDebounceMs`, not pacer. Versions checked 2026-11-02 via `npm view`.
 
+@tanstack/redact 0.2.3 added 2026-11-02 at user request, not yet used.
+
 Go was initially rejected as "hard to modify", but accepted once templates and board
 profiles were externalized to plain files on disk (NOT go:embed).
 Frontend changes require `vite build` + deploy, but no Go recompilation.
