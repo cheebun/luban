@@ -1,3 +1,4 @@
+import { useThrottledCallback } from "@tanstack/react-pacer";
 import { useState } from "react";
 import { twc } from "react-twc";
 import { probeWizard } from "../../api/index.ts";
@@ -10,6 +11,8 @@ const BoardName = twc.p`text-base font-medium text-gray-900 mb-4`;
 const Table = twc.table`w-full text-sm border-collapse`;
 const Th = twc.th`text-left text-xs font-medium text-gray-500 px-3 py-2 border-b border-gray-200`;
 const Td = twc.td`px-3 py-2 border-b border-gray-100`;
+
+const PROBE_THROTTLE_MS = 2000;
 
 const FooterRow = twc.div`flex items-center justify-between mt-6`;
 
@@ -49,12 +52,18 @@ export function HardwareStep({ state, onStateUpdate, onNext, onBack }: Props) {
     }
   }
 
+  // Leading-edge throttle + the `probing` disable below: repeated clicks
+  // can't stack DHCP probes (each takes ~10s server-side).
+  const throttledProbe = useThrottledCallback(() => void handleProbe(), {
+    wait: PROBE_THROTTLE_MS,
+    leading: true,
+    trailing: false,
+  });
+
   return (
     <div>
       <SectionTitle>板卡型号</SectionTitle>
-      <BoardName>
-        {state.board ? state.board.name : "未识别的设备"}
-      </BoardName>
+      <BoardName>{state.board ? state.board.name : "未识别的设备"}</BoardName>
 
       <SectionTitle>网络接口</SectionTitle>
       {state.interfaces.length === 0 ? (
@@ -113,7 +122,7 @@ export function HardwareStep({ state, onStateUpdate, onNext, onBack }: Props) {
           <Button $variant="secondary" onClick={onBack}>
             上一步
           </Button>
-          <Button $variant="secondary" onClick={() => void handleProbe()} disabled={probing}>
+          <Button $variant="secondary" onClick={throttledProbe} disabled={probing}>
             {probing ? "探测中…" : "重新探测"}
           </Button>
         </div>

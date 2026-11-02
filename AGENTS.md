@@ -93,6 +93,25 @@ providers where one of these already fits:
   stable across renders — safe to put directly in a `useEffect`/`useCallback`
   dependency array.
 
+- **@tanstack/react-pacer** — rate-limiting/throttling of user actions
+  (`useThrottledCallback`, `useRateLimitedCallback`). Used for the wizard
+  「重新探测」 button (leading-edge throttle) and the per-service restart action
+  on HealthPage (1 per 10s). **Do not double-debounce**: per-field typing
+  validation is already debounced by TanStack Form itself — pass the zod
+  schema as `validators.onChangeAsync` with `onChangeAsyncDebounceMs:
+  VALIDATE_DEBOUNCE_MS` (`src/lib/formSchemas.ts`) and keep `onSubmit`
+  immediate. Reach for pacer only where the form library has no equivalent.
+- **TanStack Devtools (dev only)** — `@tanstack/react-devtools` plus the
+  form/query/pacer plugin packages are devDependencies, rendered by
+  `src/DevtoolsPanel.tsx`. It must be loaded only via
+  `import.meta.env.DEV ? lazy(() => import("./DevtoolsPanel.tsx")) : null`
+  (see `Providers.tsx`) and must never appear in `dist/`: the bundle ships
+  self-contained to the router. After `pnpm build`, `dist/assets/*.js` must not
+  contain `TanStackDevtools` / `query-devtools` / `pacer-devtools`. (A few
+  lightweight `*-devtools` event-emitter strings from react-form/react-pacer
+  and React's own `__REACT_DEVTOOLS_GLOBAL_HOOK__` are library-internal and
+  expected.)
+
 `src/Providers.tsx` wraps the app in a single SSR-aware `QueryClient`
 singleton (`isServer` branch kept for future-proofing even though this is a
 client-only SPA today — swapping to a server-rendering setup later shouldn't

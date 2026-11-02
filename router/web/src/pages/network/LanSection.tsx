@@ -19,9 +19,21 @@ import {
   RadioOption,
   UnitInput,
 } from "../../components/ui/index.ts";
-import { fieldErrorText, lanFormSchema, type LanFormValues } from "../../lib/formSchemas.ts";
+import {
+  fieldErrorText,
+  VALIDATE_DEBOUNCE_MS,
+  lanFormSchema,
+  type LanFormValues,
+} from "../../lib/formSchemas.ts";
 import { leaseToHours, maskToPrefix, splitCidrForEdit } from "../../lib/network.ts";
-import { CheckLabel, FieldError, FooterRow, InlineRow, InlineRowItem, InvalidUnitInput } from "./primitives.tsx";
+import {
+  CheckLabel,
+  FieldError,
+  FooterRow,
+  InlineRow,
+  InlineRowItem,
+  InvalidUnitInput,
+} from "./primitives.tsx";
 import { TextField } from "./TextField.tsx";
 
 interface Props {
@@ -54,7 +66,11 @@ export function LanSection({ config, onApplied }: Props) {
 
   const form = useForm({
     defaultValues: lanDefaults(config),
-    validators: { onChange: lanFormSchema, onSubmit: lanFormSchema },
+    validators: {
+      onChangeAsync: lanFormSchema,
+      onChangeAsyncDebounceMs: VALIDATE_DEBOUNCE_MS,
+      onSubmit: lanFormSchema,
+    },
     onSubmit: async ({ value }) => {
       setSaveError("");
       const latest = latestConfigQuery.data ?? config;
@@ -145,13 +161,17 @@ export function LanSection({ config, onApplied }: Props) {
                     <InlineRow>
                       <InlineRowItem>
                         <form.Field name="poolStart">
-                          {(field) => <TextField field={field} aria-label="起始地址" placeholder="起始地址" />}
+                          {(field) => (
+                            <TextField field={field} aria-label="起始地址" placeholder="起始地址" />
+                          )}
                         </form.Field>
                       </InlineRowItem>
                       <span>–</span>
                       <InlineRowItem>
                         <form.Field name="poolEnd">
-                          {(field) => <TextField field={field} aria-label="结束地址" placeholder="结束地址" />}
+                          {(field) => (
+                            <TextField field={field} aria-label="结束地址" placeholder="结束地址" />
+                          )}
                         </form.Field>
                       </InlineRowItem>
                     </InlineRow>
@@ -171,7 +191,9 @@ export function LanSection({ config, onApplied }: Props) {
                               min={1}
                               value={field.state.value}
                               onChange={(e) =>
-                                field.handleChange(e.target.value === "" ? 0 : Number(e.target.value))
+                                field.handleChange(
+                                  e.target.value === "" ? 0 : Number(e.target.value),
+                                )
                               }
                               onBlur={field.handleBlur}
                             />
@@ -210,7 +232,9 @@ export function LanSection({ config, onApplied }: Props) {
                     手动
                   </RadioOption>
                 </RadioGroup>
-                {field.state.value === "auto" && <FieldHint>下发路由器自身作为 DNS 服务器</FieldHint>}
+                {field.state.value === "auto" && (
+                  <FieldHint>下发路由器自身作为 DNS 服务器</FieldHint>
+                )}
               </FormGroup>
             )}
           </form.Field>
@@ -221,7 +245,12 @@ export function LanSection({ config, onApplied }: Props) {
                 <>
                   <form.Field name="dns1">
                     {(field) => (
-                      <TextField field={field} id="lan-dns1" label="首选 DNS *" placeholder="例：223.5.5.5" />
+                      <TextField
+                        field={field}
+                        id="lan-dns1"
+                        label="首选 DNS *"
+                        placeholder="例：223.5.5.5"
+                      />
                     )}
                   </form.Field>
                   <form.Field name="dns2">

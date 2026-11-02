@@ -17,7 +17,12 @@ import {
   PasswordInput,
   Select,
 } from "../../components/ui/index.ts";
-import { fieldErrorText, wanFormSchema, type WanFormValues } from "../../lib/formSchemas.ts";
+import {
+  fieldErrorText,
+  VALIDATE_DEBOUNCE_MS,
+  wanFormSchema,
+  type WanFormValues,
+} from "../../lib/formSchemas.ts";
 import { maskToPrefix, splitCidrForEdit } from "../../lib/network.ts";
 import { CheckLabel, DhcpAutoNote, FieldError, FooterRow } from "./primitives.tsx";
 import { TextField } from "./TextField.tsx";
@@ -54,7 +59,11 @@ export function WanSection({ config, onApplied }: Props) {
 
   const form = useForm({
     defaultValues: wanDefaults(config),
-    validators: { onChange: wanFormSchema, onSubmit: wanFormSchema },
+    validators: {
+      onChangeAsync: wanFormSchema,
+      onChangeAsyncDebounceMs: VALIDATE_DEBOUNCE_MS,
+      onSubmit: wanFormSchema,
+    },
     onSubmit: async ({ value }) => {
       setSaveError("");
       const latest = latestConfigQuery.data ?? config;
@@ -142,7 +151,12 @@ export function WanSection({ config, onApplied }: Props) {
                   <>
                     <form.Field name="username">
                       {(field) => (
-                        <TextField field={field} id="pppoe-user" label="用户名 *" autoComplete="username" />
+                        <TextField
+                          field={field}
+                          id="pppoe-user"
+                          label="用户名 *"
+                          autoComplete="username"
+                        />
                       )}
                     </form.Field>
                     <form.Field name="password">
@@ -169,7 +183,12 @@ export function WanSection({ config, onApplied }: Props) {
                   <>
                     <form.Field name="ip">
                       {(field) => (
-                        <TextField field={field} id="wan-ip" label="IP 地址 *" placeholder="例：203.0.113.2" />
+                        <TextField
+                          field={field}
+                          id="wan-ip"
+                          label="IP 地址 *"
+                          placeholder="例：203.0.113.2"
+                        />
                       )}
                     </form.Field>
                     <form.Field name="mask">
@@ -194,7 +213,12 @@ export function WanSection({ config, onApplied }: Props) {
                     </form.Field>
                     <form.Field name="dns1">
                       {(field) => (
-                        <TextField field={field} id="wan-dns1" label="首选 DNS *" placeholder="例：223.5.5.5" />
+                        <TextField
+                          field={field}
+                          id="wan-dns1"
+                          label="首选 DNS *"
+                          placeholder="例：223.5.5.5"
+                        />
                       )}
                     </form.Field>
                     <form.Field name="dns2">

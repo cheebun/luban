@@ -16,7 +16,12 @@ import {
   CardTitle,
   Input,
 } from "../../components/ui/index.ts";
-import { fieldErrorText, staticRecordsFormSchema, type StaticRecordsFormValues } from "../../lib/formSchemas.ts";
+import {
+  fieldErrorText,
+  VALIDATE_DEBOUNCE_MS,
+  staticRecordsFormSchema,
+  type StaticRecordsFormValues,
+} from "../../lib/formSchemas.ts";
 
 const RecordRow = twc.div`flex items-start gap-2 mb-2`;
 const FieldCol = twc.div`flex-1`;
@@ -46,7 +51,11 @@ export function StaticRecordsSection({ config }: Props) {
     defaultValues: {
       records: config.dns.static_records,
     } as StaticRecordsFormValues,
-    validators: { onChange: staticRecordsFormSchema, onSubmit: staticRecordsFormSchema },
+    validators: {
+      onChangeAsync: staticRecordsFormSchema,
+      onChangeAsyncDebounceMs: VALIDATE_DEBOUNCE_MS,
+      onSubmit: staticRecordsFormSchema,
+    },
     onSubmit: async ({ value }) => {
       setSaveError("");
       const latest = latestConfigQuery.data ?? config;

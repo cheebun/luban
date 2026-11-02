@@ -38,7 +38,8 @@ export const wanFormSchema = z
           message: "子网掩码无效（必须是连续掩码，如 255.255.255.0）",
         });
 
-      if (!v.gateway) ctx.addIssue({ code: "custom", path: ["gateway"], message: "请输入默认网关" });
+      if (!v.gateway)
+        ctx.addIssue({ code: "custom", path: ["gateway"], message: "请输入默认网关" });
       else if (!isValidIPv4(v.gateway))
         ctx.addIssue({ code: "custom", path: ["gateway"], message: "网关地址格式无效" });
 
@@ -48,7 +49,8 @@ export const wanFormSchema = z
       if (v.dns2 && !isValidIPv4(v.dns2))
         ctx.addIssue({ code: "custom", path: ["dns2"], message: "备用 DNS 格式无效" });
     } else if (v.mode === "pppoe") {
-      if (!v.username) ctx.addIssue({ code: "custom", path: ["username"], message: "请输入用户名" });
+      if (!v.username)
+        ctx.addIssue({ code: "custom", path: ["username"], message: "请输入用户名" });
       if (!v.password) ctx.addIssue({ code: "custom", path: ["password"], message: "请输入密码" });
     }
   });
@@ -136,7 +138,13 @@ export const lanFormSchema = z
         poolEndError = true;
       }
 
-      if (!poolStartError && !poolEndError && startInt !== null && endInt !== null && startInt >= endInt) {
+      if (
+        !poolStartError &&
+        !poolEndError &&
+        startInt !== null &&
+        endInt !== null &&
+        startInt >= endInt
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["poolEnd"],
@@ -168,7 +176,11 @@ export type LanFormValues = z.infer<typeof lanFormSchema>;
 export function buildMtuMssFormSchema(wanMode: z.infer<typeof WanModeSchema>) {
   return z.object({ mtu: z.number(), mss: z.number() }).superRefine((v, ctx) => {
     if (v.mtu !== 0 && (v.mtu < 576 || v.mtu > 9200)) {
-      ctx.addIssue({ code: "custom", path: ["mtu"], message: "MTU 需在 576–9200 之间，留空为自动" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["mtu"],
+        message: "MTU 需在 576–9200 之间，留空为自动",
+      });
     }
     const effectiveMtu = v.mtu || (wanMode === "pppoe" ? 1492 : 1500);
     const mssMax = effectiveMtu - 40;
@@ -204,7 +216,14 @@ function isValidLanDNSName(name: string): boolean {
 function isValidIP(ip: string): boolean {
   // IPv4
   const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
-  if (ipv4 && ipv4.slice(1).map(Number).every((n) => n <= 255)) return true;
+  if (
+    ipv4 &&
+    ipv4
+      .slice(1)
+      .map(Number)
+      .every((n) => n <= 255)
+  )
+    return true;
   // IPv6: must contain colons and only valid hex chars / colons
   return ip.includes(":") && /^[0-9a-fA-F:]+$/.test(ip) && ip.split(":").length <= 9;
 }
@@ -225,7 +244,11 @@ const staticDNSRecordSchema = z
     } else if (!name.endsWith(".lan")) {
       ctx.addIssue({ code: "custom", path: ["name"], message: "仅支持 .lan 域名" });
     } else if (!isValidLanDNSName(name)) {
-      ctx.addIssue({ code: "custom", path: ["name"], message: "域名格式无效（须为 RFC1123 标签）" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: "域名格式无效（须为 RFC1123 标签）",
+      });
     } else if (RESERVED_LAN_NAMES.has(name)) {
       ctx.addIssue({ code: "custom", path: ["name"], message: "该名称为内置保留名称" });
     }
@@ -233,7 +256,11 @@ const staticDNSRecordSchema = z
     if (!ip) {
       ctx.addIssue({ code: "custom", path: ["ip"], message: "请输入 IP 地址" });
     } else if (!isValidIP(ip)) {
-      ctx.addIssue({ code: "custom", path: ["ip"], message: "IP 地址格式无效（支持 IPv4 和 IPv6）" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["ip"],
+        message: "IP 地址格式无效（支持 IPv4 和 IPv6）",
+      });
     }
   });
 
@@ -320,6 +347,11 @@ export const wizardManagementFormSchema = z
   });
 
 export type WizardManagementFormValues = z.infer<typeof wizardManagementFormSchema>;
+
+// Per-field typing validation is debounced via TanStack Form's native
+// `onChangeAsyncDebounceMs` (zod schema passed as `onChangeAsync`). Submit-time
+// validation stays immediate. Do NOT add a pacer debounce on top of this.
+export const VALIDATE_DEBOUNCE_MS = 300;
 
 // TanStack Form field errors are `unknown[]` — Standard Schema (zod) issue
 // objects carry `.message`, while plain function validators (used for

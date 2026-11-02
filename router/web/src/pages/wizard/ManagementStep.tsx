@@ -1,7 +1,11 @@
 import { useForm } from "@tanstack/react-form";
 import { twc } from "react-twc";
 import { Button, FormGroup, Input, Label, PasswordInput } from "../../components/ui/index.ts";
-import { fieldErrorText, wizardManagementFormSchema } from "../../lib/formSchemas.ts";
+import {
+  fieldErrorText,
+  VALIDATE_DEBOUNCE_MS,
+  wizardManagementFormSchema,
+} from "../../lib/formSchemas.ts";
 import type { WizardFormData } from "./WizardPage.tsx";
 
 const FooterRow = twc.div`flex items-center justify-between mt-6`;
@@ -24,7 +28,11 @@ export function ManagementStep({ formData, onUpdate, onNext, onBack }: Props) {
       password: formData.password,
       confirmPassword: "",
     },
-    validators: { onChange: wizardManagementFormSchema, onSubmit: wizardManagementFormSchema },
+    validators: {
+      onChangeAsync: wizardManagementFormSchema,
+      onChangeAsyncDebounceMs: VALIDATE_DEBOUNCE_MS,
+      onSubmit: wizardManagementFormSchema,
+    },
     onSubmit: ({ value }) => {
       onUpdate({ lanIp: value.lanIp, lanMask: value.lanMask, password: value.password });
       onNext();

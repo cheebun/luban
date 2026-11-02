@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { twc } from "react-twc";
 import { useHealthQuery } from "../api/queries.ts";
+import { ServiceRestartAction } from "./ServiceRestartAction.tsx";
+import type { RestartRequest } from "./ServiceRestartAction.tsx";
 import { useRestartServiceMutation } from "../api/mutations.ts";
 import type { HealthComponent, HealthService, HealthTakeoverCheck } from "../api/index.ts";
 import {
@@ -28,8 +30,6 @@ const Thead = twc.thead`border-b border-gray-200`;
 const Th = twc.th`text-left text-xs font-medium text-gray-500 uppercase tracking-wide pb-2 pr-4`;
 
 const Td = twc.td`py-2 pr-4 text-gray-700 align-top`;
-
-const ActionLink = twc.button`text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`;
 
 const RefreshRow = twc.div`flex items-center justify-between mb-6`;
 
@@ -71,16 +71,12 @@ function takeoverBadge(ok: boolean) {
   return ok ? <Badge $status="online">{OK}</Badge> : <Badge $status="error">{NG}</Badge>;
 }
 
-interface RestartTarget {
-  name: string;
-}
-
 export function HealthPage() {
   const healthQuery = useHealthQuery();
   const restartMutation = useRestartServiceMutation();
   const health = healthQuery.data;
   const lastUpdated = healthQuery.dataUpdatedAt ? new Date(healthQuery.dataUpdatedAt) : null;
-  const [confirmTarget, setConfirmTarget] = useState<RestartTarget | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<RestartRequest | null>(null);
   const [restarting, setRestarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,13 +175,12 @@ export function HealthPage() {
                       <Td>{s.detail || "—"}</Td>
                       <Td>
                         {s.restartable ? (
-                          <ActionLink
-                            type="button"
-                            disabled={restarting === s.name}
-                            onClick={() => setConfirmTarget({ name: s.name })}
-                          >
-                            {restarting === s.name ? "重启中…" : "重启服务"}
-                          </ActionLink>
+                          <ServiceRestartAction
+                            name={s.name}
+                            restarting={restarting === s.name}
+                            onRestart={(n) => void doRestart(n)}
+                            onRequest={setConfirmTarget}
+                          />
                         ) : (
                           "—"
                         )}
@@ -240,7 +235,14 @@ export function HealthPage() {
               <Button $variant="secondary" onClick={() => setConfirmTarget(null)}>
                 取消
               </Button>
-              <Button $variant="danger" onClick={() => void doRestart(confirmTarget.name)}>
+              <Button
+                $variant="danger"
+                onClick={() => {
+                  const target = confirmTarget;
+                  setConfirmTarget(null);
+                  target.attempt();
+                }}
+              >
                 确认重启
               </Button>
             </ButtonRow>

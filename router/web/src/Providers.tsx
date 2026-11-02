@@ -12,6 +12,11 @@
 // deprecation note ("use `environmentManager.isServer()` instead" refers to
 // internal library code, not consumer code).
 import { isServer, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
+
+// Dev-only: `import.meta.env.DEV` is statically false in prod builds, so Vite
+// drops the dynamic import (and the whole devtools chunk) from dist/.
+const DevtoolsPanel = import.meta.env.DEV ? lazy(() => import("./DevtoolsPanel.tsx")) : null;
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { staleTime: 60 * 1000 } } });
@@ -36,5 +41,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // it in useState would still work but is redundant and, unlike this form,
   // would not survive a component remount during Suspense.
   const queryClient = getQueryClient();
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      {DevtoolsPanel && (
+        <Suspense fallback={null}>
+          <DevtoolsPanel />
+        </Suspense>
+      )}
+    </QueryClientProvider>
+  );
 }

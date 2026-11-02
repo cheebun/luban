@@ -20,7 +20,12 @@ import {
   Label,
 } from "../../components/ui/index.ts";
 import { UPSTREAM_FORMATS_HINT, validateDnsUpstream } from "../../lib/dns.ts";
-import { dnsFormSchema, fieldErrorText, type DnsFormValues } from "../../lib/formSchemas.ts";
+import {
+  dnsFormSchema,
+  fieldErrorText,
+  VALIDATE_DEBOUNCE_MS,
+  type DnsFormValues,
+} from "../../lib/formSchemas.ts";
 import { StaticRecordsSection } from "./StaticRecordsSection.tsx";
 
 const PageTitle = twc.h1`text-xl font-semibold text-gray-900 mb-6`;
@@ -53,7 +58,11 @@ export function DnsForm({ config }: Props) {
 
   const form = useForm({
     defaultValues: { upstreams: config.dns.upstreams } as DnsFormValues,
-    validators: { onChange: dnsFormSchema, onSubmit: dnsFormSchema },
+    validators: {
+      onChangeAsync: dnsFormSchema,
+      onChangeAsyncDebounceMs: VALIDATE_DEBOUNCE_MS,
+      onSubmit: dnsFormSchema,
+    },
     onSubmit: async ({ value }) => {
       setSaveError("");
       if (value.upstreams.some((s) => validateDnsUpstream(s) !== null)) {
@@ -101,7 +110,8 @@ export function DnsForm({ config }: Props) {
                         <form.Field key={idx} name={`upstreams[${idx}]`}>
                           {(field) => {
                             const error =
-                              fieldErrorText(field.state.meta.errors) ?? validateDnsUpstream(server);
+                              fieldErrorText(field.state.meta.errors) ??
+                              validateDnsUpstream(server);
                             const InputComponent = error ? InvalidInput : Input;
                             return (
                               <div>

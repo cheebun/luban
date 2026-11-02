@@ -51,6 +51,17 @@ A 300-LOC/file lint cap (`.oxlintrc.json` `max-lines`) and a
 one-component-per-file rule keep the query/form/schema/store split
 enforceable rather than aspirational.
 
+### Web Stack addendum (2026-11-02)
+
+Added `@tanstack/react-pacer` 0.24.1 (wizard probe throttle, per-service
+restart rate limit) and dev-only TanStack Devtools (`@tanstack/react-devtools`
+0.10.14, `react-form-devtools` 0.2.34, `react-query-devtools` 5.105.1,
+`react-pacer-devtools` 0.9.1), lazy-loaded behind `import.meta.env.DEV` so the
+self-contained prod bundle excludes them. Bumped `react-query` to 5.105.1 and
+`zod` to 4.6.7 (react-form stays 1.33.5, already latest). Form typing
+validation is debounced 300ms via TanStack Form's native
+`onChangeAsyncDebounceMs`, not pacer. Versions checked 2026-11-02 via `npm view`.
+
 Go was initially rejected as "hard to modify", but accepted once templates and board
 profiles were externalized to plain files on disk (NOT go:embed).
 Frontend changes require `vite build` + deploy, but no Go recompilation.
