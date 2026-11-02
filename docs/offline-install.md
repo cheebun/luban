@@ -50,7 +50,10 @@ This produces `/tmp/bundles/luban-offline-v1.2.3-amd64.tar.gz`.
 ### Option B: build the luban payload from the repository
 
 If you have the source tree and want to build the payload on the fly, use
-`--from-repo`. Go and pnpm must be installed on the builder:
+`--from-repo`. Go and pnpm must be installed on the builder. `router/api/go.mod`
+requires Go >= 1.26 (Debian 13's packaged `golang-go` is 1.24, which would
+trigger a toolchain download and break offline builds). Install Go 1.26+ on
+the builder, or build on a machine that has it and use `--release` instead:
 
 ```bash
 # From the repo root:
