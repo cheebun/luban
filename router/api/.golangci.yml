@@ -2,7 +2,7 @@ version: "2"
 
 # Pin to the go version in go.mod so the linter agrees on language features.
 run:
-  go: "1.23"
+  go: "1.26"
 
 linters:
   enable:
@@ -30,4 +30,5 @@ formatters:
 
   settings:
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
