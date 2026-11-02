@@ -46,7 +46,6 @@ export function ApplyDialog({ open, unchecked, onClose, onSuccess }: Props) {
   // every render rather than useCallback deps, so neither has to be defined
   // before the other.
   const secondsLeftRef = useRef(secondsLeft);
-  secondsLeftRef.current = secondsLeft;
   const doConfirmRef = useRef<() => Promise<void>>(async () => {});
   const startPollingRef = useRef<() => void>(() => {});
 
@@ -79,7 +78,6 @@ export function ApplyDialog({ open, unchecked, onClose, onSuccess }: Props) {
       }
     }
   }, [clearTimers, onSuccess, setState, setErrorMsg]);
-  doConfirmRef.current = doConfirm;
 
   const startPolling = useCallback(() => {
     setState("polling");
@@ -101,7 +99,13 @@ export function ApplyDialog({ open, unchecked, onClose, onSuccess }: Props) {
       // still unreachable — keep polling
     }, POLL_INTERVAL_MS);
   }, [clearTimers, setState, setSecondsLeft]);
-  startPollingRef.current = startPolling;
+
+  // Refs are synced after commit, not during render.
+  useEffect(() => {
+    secondsLeftRef.current = secondsLeft;
+    doConfirmRef.current = doConfirm;
+    startPollingRef.current = startPolling;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -141,7 +145,16 @@ export function ApplyDialog({ open, unchecked, onClose, onSuccess }: Props) {
       cancelled = true;
       clearTimers();
     };
-  }, [open, unchecked, clearTimers, startPolling, onSuccess, resetDialogState, setState, setErrorMsg]);
+  }, [
+    open,
+    unchecked,
+    clearTimers,
+    startPolling,
+    onSuccess,
+    resetDialogState,
+    setState,
+    setErrorMsg,
+  ]);
 
   if (!open) return null;
 

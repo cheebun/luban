@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { twc } from "react-twc";
 import { useHealthQuery } from "../api/queries.ts";
 import { ServiceRestartAction } from "./ServiceRestartAction.tsx";
@@ -80,28 +80,25 @@ export function HealthPage() {
   const [restarting, setRestarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const doRestart = useCallback(
-    async (name: string) => {
-      setConfirmTarget(null);
-      setRestarting(name);
-      setError(null);
-      try {
-        await restartMutation.mutateAsync({ name });
-        // router-ui restarts itself with a short delay server-side; give every
-        // target a moment before refetching so the new state is observable.
-        // The mutation's onSuccess already invalidates the health query —
-        // this explicit refetch just waits for fresh data before clearing
-        // the "restarting" indicator.
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await healthQuery.refetch();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "重启失败");
-      } finally {
-        setRestarting(null);
-      }
-    },
-    [restartMutation, healthQuery],
-  );
+  const doRestart = async (name: string) => {
+    setConfirmTarget(null);
+    setRestarting(name);
+    setError(null);
+    try {
+      await restartMutation.mutateAsync({ name });
+      // router-ui restarts itself with a short delay server-side; give every
+      // target a moment before refetching so the new state is observable.
+      // The mutation's onSuccess already invalidates the health query —
+      // this explicit refetch just waits for fresh data before clearing
+      // the "restarting" indicator.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await healthQuery.refetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "重启失败");
+    } finally {
+      setRestarting(null);
+    }
+  };
 
   if (!health) {
     return <PageTitle>正在加载…</PageTitle>;
